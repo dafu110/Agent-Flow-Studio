@@ -9,6 +9,7 @@ AI-Canvas是一款专为**企业高级管理咨询、数字化转型战略落地
 ## 🎨 平台全景窗览
 
 *<img width="1872" height="800" alt="assets" src="https://github.com/user-attachments/assets/6a0f60fa-fc43-4f0e-9d1a-163fc006349b" />*
+<img width="1611" height="895" alt="assets1" src="https://github.com/user-attachments/assets/8c23f607-d25d-4356-a02b-41ea0cfb9ad0" />
 
 ```text
 [ 🪐 数字化战略输入 ] ──(LLM 非线性解构)──> [ 📊 动态拓扑推演大屏 ]
