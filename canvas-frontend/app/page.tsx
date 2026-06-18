@@ -1,194 +1,563 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ReactFlow, Background, Controls, useNodesState, useEdgesState, MiniMap, Panel } from '@xyflow/react';
-// @ts-ignore
+import React, { useMemo, useState } from 'react';
+import {
+  Background,
+  Controls,
+  Edge,
+  Handle,
+  MarkerType,
+  Node,
+  NodeProps,
+  Panel,
+  Position,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Sparkles, Loader2, ArrowLeft, Layers, FileText, BarChart3, ShieldAlert, Cpu } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Boxes,
+  BrainCircuit,
+  CheckCircle2,
+  ClipboardList,
+  Compass,
+  Cpu,
+  FileText,
+  GitBranch,
+  Loader2,
+  Network,
+  Play,
+  RefreshCw,
+  Route,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  WandSparkles,
+} from 'lucide-react';
 
-const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  const cardWidth = 280; const cardHeight = 160; const colGap = 80; const rowGap = 100;  
-  const safeNodes = nodes.map((node, index) => {
-    const col = index % 3; const row = Math.floor(index / 3);
-    const calcX = col * (cardWidth + colGap) + 40;
-    const calcY = row * (cardHeight + rowGap) + 60;
+type CanvasNode = {
+  id: string;
+  label: string;
+  type?: string;
+  description?: string;
+};
+
+type CanvasEdge = {
+  source: string;
+  target: string;
+  label?: string;
+};
+
+type TopologyResponse = {
+  summary: string;
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
+};
+
+type ErrorState = {
+  title: string;
+  body: string;
+  action: string;
+};
+
+type AgentNodeData = {
+  label: React.ReactNode;
+  rawDetails: CanvasNode;
+} & Record<string, unknown>;
+
+type AgentNode = Node<AgentNodeData, 'agentNode'>;
+
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+
+const scenarioPrompts = [
+  {
+    label: '产品上线',
+    prompt: '为一个 SaaS 新功能上线制定 agent 工作流：从用户需求澄清、竞品调研、方案设计、研发协作、测试验收、灰度发布到复盘增长。',
+  },
+  {
+    label: '学习计划',
+    prompt: '为 30 天掌握数据分析基础设计学习 agent：包含目标拆解、资料筛选、每日练习、项目实战、复盘测试和成果展示。',
+  },
+  {
+    label: '运营活动',
+    prompt: '为一次线上会员增长活动设计 agent 编排：包含人群洞察、权益设计、内容投放、自动化触达、数据监控、风险控制和复盘。',
+  },
+  {
+    label: '科研项目',
+    prompt: '为一个科研课题推进设计 agent 工作流：包含问题定义、文献综述、实验设计、数据采集、分析验证、论文写作和同行反馈。',
+  },
+];
+
+const typeTone: Record<string, { accent: string; bg: string; icon: React.ReactNode }> = {
+  input: {
+    accent: 'text-sky-600',
+    bg: 'bg-sky-50 border-sky-100',
+    icon: <ClipboardList className="h-3.5 w-3.5" />,
+  },
+  research: {
+    accent: 'text-violet-600',
+    bg: 'bg-violet-50 border-violet-100',
+    icon: <Search className="h-3.5 w-3.5" />,
+  },
+  planning: {
+    accent: 'text-cyan-700',
+    bg: 'bg-cyan-50 border-cyan-100',
+    icon: <Compass className="h-3.5 w-3.5" />,
+  },
+  execution: {
+    accent: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-100',
+    icon: <Activity className="h-3.5 w-3.5" />,
+  },
+  automation: {
+    accent: 'text-emerald-600',
+    bg: 'bg-emerald-50 border-emerald-100',
+    icon: <Cpu className="h-3.5 w-3.5" />,
+  },
+  review: {
+    accent: 'text-blue-600',
+    bg: 'bg-blue-50 border-blue-100',
+    icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+  },
+  decision: {
+    accent: 'text-rose-600',
+    bg: 'bg-rose-50 border-rose-100',
+    icon: <GitBranch className="h-3.5 w-3.5" />,
+  },
+  governance: {
+    accent: 'text-slate-700',
+    bg: 'bg-slate-100 border-slate-200',
+    icon: <ShieldCheck className="h-3.5 w-3.5" />,
+  },
+  risk: {
+    accent: 'text-orange-600',
+    bg: 'bg-orange-50 border-orange-100',
+    icon: <AlertTriangle className="h-3.5 w-3.5" />,
+  },
+};
+
+const getTone = (type?: string) => typeTone[(type ?? '').toLowerCase()] ?? typeTone.planning;
+
+const createNodes = (items: CanvasNode[]): AgentNode[] => {
+  return items.map((node, index) => {
+    const col = index % 3;
+    const row = Math.floor(index / 3);
+    const safeType = node.type ?? 'Planning';
+    const tone = getTone(safeType);
+
     return {
-      ...node,
-      position: { x: Number.isFinite(calcX) ? calcX : 40, y: Number.isFinite(calcY) ? calcY : 60 }
+      id: String(node.id || `node-${index}`).trim(),
+      type: 'agentNode',
+      position: {
+        x: col * 360 + (row % 2 === 0 ? 0 : 88),
+        y: row * 210,
+      },
+      data: {
+        rawDetails: {
+          ...node,
+          id: String(node.id || `node-${index}`).trim(),
+          type: safeType,
+        },
+        label: (
+          <div className="h-full w-full">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className={`inline-flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${tone.bg} ${tone.accent}`}>
+                {tone.icon}
+                <span className="truncate">{safeType}</span>
+              </div>
+              <span className="shrink-0 font-mono text-[10px] font-semibold text-slate-300">#{index + 1}</span>
+            </div>
+            <div className="text-[15px] font-black leading-snug text-slate-950">{node.label || '未命名节点'}</div>
+            <p className="mt-2 max-h-[58px] overflow-hidden text-[12px] font-semibold leading-relaxed text-slate-500">
+              {node.description || '等待 agent 补全节点说明。'}
+            </p>
+          </div>
+        ),
+      },
+      style: {
+        width: 278,
+        height: 144,
+      },
     };
   });
-  return { nodes: safeNodes, edges };
+};
+
+const createEdges = (items: CanvasEdge[], nodes: AgentNode[]): Edge[] => {
+  const validIds = new Set(nodes.map((node) => node.id));
+
+  return items
+    .map((edge, index) => ({
+      id: `edge-${edge.source}-${edge.target}-${index}`,
+      source: String(edge.source).trim(),
+      target: String(edge.target).trim(),
+      type: 'smoothstep',
+      animated: true,
+      label: edge.label,
+      style: { stroke: '#38bdf8', strokeWidth: 1.7, strokeDasharray: '6 6' },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 18,
+        height: 18,
+        color: '#38bdf8',
+      },
+    }))
+    .filter((edge) => validIds.has(edge.source) && validIds.has(edge.target));
+};
+
+function AgentNodeCard({ data, selected }: NodeProps<AgentNode>) {
+  return (
+    <div
+      className={`agent-node-shell h-[144px] w-[278px] rounded-[8px] border bg-white/95 p-4 shadow-[0_16px_34px_rgba(15,23,42,0.08)] transition duration-300 ${
+        selected ? 'border-cyan-400 shadow-[0_18px_42px_rgba(8,145,178,0.22)]' : 'border-slate-200/90'
+      }`}
+    >
+      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-2 !border-white !bg-slate-400" />
+      <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-2 !border-white !bg-slate-400" />
+      {data.label}
+      <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-2 !border-white !bg-cyan-500" />
+      <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-2 !border-white !bg-cyan-500" />
+    </div>
+  );
+}
+
+const formatError = (message: string): ErrorState => {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('api_key') || lower.includes('api key') || lower.includes('key')) {
+    return {
+      title: 'Gemini Key 未配置',
+      body: '后端没有检测到可用的 GEMINI_API_KEY，因此无法调用 Gemini。',
+      action: '在 canvas-backend/.env 中配置 GEMINI_API_KEY 后重启后端。',
+    };
+  }
+
+  if (lower.includes('quota') || lower.includes('billing') || lower.includes('resource exhausted')) {
+    return {
+      title: 'Gemini 配额不足',
+      body: '当前 Gemini API Key 已达到限额或项目计费不可用。',
+      action: '检查 Google AI Studio / Google Cloud 的 API 配额与计费状态。',
+    };
+  }
+
+  if (lower.includes('failed to fetch') || lower.includes('network')) {
+    return {
+      title: '后端连接异常',
+      body: '前端暂时无法连接 FastAPI 服务。',
+      action: '确认后端运行在 http://localhost:8000，并检查 NEXT_PUBLIC_API_BASE_URL。',
+    };
+  }
+
+  return {
+    title: '生成请求失败',
+    body: 'Agent 生成链路暂时不可用。',
+    action: message,
+  };
 };
 
 export default function CanvasPage() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
+  const nodeTypes = useMemo(() => ({ agentNode: AgentNodeCard }), []);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<AgentNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState('请输入转型构思，大局观引擎将在此为您解构商业蓝图与底层依赖拓扑...');
-  const [selectedNodeDetails, setSelectedNodeDetails] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'roi' | 'risk'>('overview');
+  const [summary, setSummary] = useState('输入任意场景目标后，AgentFlow Orchestrator 会生成一张可执行的 agent 工作流拓扑。');
+  const [selectedNodeDetails, setSelectedNodeDetails] = useState<CanvasNode | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'ops' | 'risk'>('overview');
+  const [status, setStatus] = useState('等待输入场景');
+  const [errorState, setErrorState] = useState<ErrorState | null>(null);
+
+  const hasCanvas = nodes.length > 0;
+
+  const applyCanvas = (canvas: TopologyResponse) => {
+    const nextNodes = createNodes(canvas.nodes);
+    const nextEdges = createEdges(canvas.edges, nextNodes);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+    setSummary(canvas.summary);
+    setSelectedNodeDetails(null);
+    setErrorState(null);
+    setStatus(`已生成 ${nextNodes.length} 个节点 / ${nextEdges.length} 条链路`);
+  };
+
+  const clearCanvas = () => {
+    setNodes([]);
+    setEdges([]);
+    setPrompt('');
+    setSelectedNodeDetails(null);
+    setErrorState(null);
+    setSummary('输入任意场景目标后，AgentFlow Orchestrator 会生成一张可执行的 agent 工作流拓扑。');
+    setStatus('等待输入场景');
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    setSelectedNodeDetails(null); 
+
     setLoading(true);
-    
+    setSelectedNodeDetails(null);
+    setErrorState(null);
+    setStatus('Gemini agent 正在拆解场景...');
+
     try {
-      const response = await fetch('http://localhost:8000/api/generate-canvas', {
+      const response = await fetch(`${apiBaseUrl}/api/generate-canvas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_prompt: prompt }),
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        setSummary(`后端架构链通信异常: ${errorData.detail || '未知错误'}`);
-        setLoading(false); return;
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || '后端服务返回异常');
       }
 
-      const data = await response.json();
-      if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
-        setSummary("Agent 返回的拓扑数据包格式损坏，请重试。");
-        setLoading(false); return;
+      const data = (await response.json()) as TopologyResponse;
+      if (!data?.summary || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+        throw new Error('Agent 返回的数据结构不完整');
       }
 
-      setSummary(data.summary || "数字化演进架构规划完成。");
-
-      const formattedNodes = data.nodes.map((node: any, index: number) => {
-        const safeId = node?.id ? String(node.id).trim() : `node-${index}`;
-        return {
-          id: safeId, type: 'default', position: { x: 0, y: 0 },
-          width: 280, height: 160, initialWidth: 280, initialHeight: 160, measured: { width: 280, height: 160 },
-          data: { 
-            label: (
-              <div className="p-5 bg-white/95 backdrop-blur-xl border border-white/80 rounded-2xl text-left hover:shadow-[0_20px_40px_rgba(6,182,212,0.12)] hover:border-cyan-400/50 transition-all duration-500 w-[280px] h-[160px] relative shadow-[0_8px_30px_rgba(0,0,0,0.02)] group select-none overflow-hidden">
-                <div className="absolute top-0 left-0 w-[280px] h-[3px] bg-gradient-to-r from-transparent via-slate-200 to-transparent group-hover:via-cyan-400 transition-all duration-700" />
-                <div className="flex justify-between items-center mb-2.5">
-                  <span className="text-[9px] font-bold tracking-widest bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md border border-slate-200/40">{node?.type || 'PROCESS'}</span>
-                  <span className="text-[10px] font-mono text-slate-300">#{safeId}</span>
-                </div>
-                <div className="text-[15px] font-bold text-slate-800 group-hover:text-cyan-600 transition-colors duration-300 truncate">{node?.label || '未命名节点'}</div>
-                <div className="text-[12px] text-slate-600 mt-2 leading-relaxed line-clamp-3 min-h-[54px] font-medium">{node?.description || '暂无数据'}</div>
-              </div>
-            ),
-            rawDetails: node 
-          },
-          style: { width: 280, height: 160, background: 'transparent', border: 'none', padding: 0 },
-        };
-      });
-
-      const validNodeIds = new Set(formattedNodes.map((n: any) => n.id));
-      const cleanEdges = data.edges
-        .map((edge: any, index: number) => ({
-          id: `edge-${edge.source}-${edge.target}-${index}`, source: String(edge.source).trim(), target: String(edge.target).trim(),
-          type: 'smoothstep', animated: true, style: { stroke: '#cbd5e1', strokeWidth: 1.5 }
-        }))
-        .filter((e: any) => e.source !== '' && e.target !== '' && validNodeIds.has(e.source) && validNodeIds.has(e.target));
-
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(formattedNodes, cleanEdges);
-      setNodes(layoutedNodes); setEdges(layoutedEdges);
+      applyCanvas(data);
     } catch (error) {
-      setSummary("全栈通信协议栈异常，云端大模型接口拥堵，请稍后重试。");
+      const message = error instanceof Error ? error.message : '未知异常';
+      const nextError = formatError(message);
+      setErrorState(nextError);
+      setStatus(nextError.title);
     } finally {
       setLoading(false);
     }
   };
 
+  const metricTiles = [
+    { label: 'Nodes', value: nodes.length.toString(), icon: <BrainCircuit className="h-4 w-4" /> },
+    { label: 'Paths', value: edges.length.toString(), icon: <Network className="h-4 w-4" /> },
+    { label: 'Mode', value: 'General', icon: <Boxes className="h-4 w-4" /> },
+  ];
+
   return (
-    <div className="flex h-screen w-screen bg-[#fafbfc] text-slate-800 overflow-hidden font-sans select-none antialiased">
-      <div className="w-[390px] shrink-0 p-6 flex flex-col bg-white/90 backdrop-blur-3xl border-r border-slate-100 z-10 shadow-[10px_0_40px_rgba(0,0,0,0.015)]">
-        <div className="flex flex-col h-full space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 shadow-sm"><Sparkles className="w-4 h-4 text-cyan-500" /></div>
-              <div>
-                <h1 className="text-sm font-bold tracking-wider text-slate-800 uppercase font-sans">Blueprint Center</h1>
-                <p className="text-[10px] text-slate-400 font-medium tracking-wide">高端企业级转型推演平台</p>
+    <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#f6f8fb] text-slate-900 antialiased md:flex-row">
+      <aside className="z-20 flex h-[56dvh] shrink-0 flex-col border-b border-slate-200/80 bg-white/95 shadow-[0_18px_44px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:h-full md:w-[400px] md:border-b-0 md:border-r">
+        <div className="border-b border-slate-100 px-4 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-cyan-100 bg-cyan-50 text-cyan-600 shadow-sm">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-black tracking-wide text-slate-950">AgentFlow Studio</h1>
+                <p className="truncate text-xs font-semibold text-slate-500">通用场景智能体编排台</p>
               </div>
             </div>
-          </div>
-          <div className="space-y-2.5">
-            <textarea
-              className="w-full h-36 bg-slate-50/80 border border-slate-200/60 rounded-xl p-3.5 text-xs focus:border-cyan-400/70 focus:bg-white outline-none resize-none transition-all duration-300 text-slate-700 shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)]"
-              placeholder="请输入数字化转型战略诉求..." value={prompt} onChange={(e) => setPrompt(e.target.value)}
-            />
-            <button onClick={handleGenerate} disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-300 text-white font-bold text-xs py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 tracking-widest uppercase">
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Drive Topology Evolution'}
-            </button>
-          </div>
-          <div className="bg-slate-50/60 border border-slate-100 rounded-2xl p-4 flex-1 shadow-[inset_0_2px_10px_rgba(0,0,0,0.005)] flex flex-col overflow-hidden">
-            <div className="grid grid-cols-3 gap-1 bg-slate-200/50 p-0.5 rounded-lg mb-3.5 text-[10px] font-bold tracking-wider uppercase">
-              <button onClick={() => setActiveTab('overview')} className={`py-1 rounded-md transition-all ${activeTab === 'overview' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-400'}`}>Overview</button>
-              <button onClick={() => setActiveTab('roi')} className={`py-1 rounded-md transition-all ${activeTab === 'roi' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-400'}`}>ROI Matrix</button>
-              <button onClick={() => setActiveTab('risk')} className={`py-1 rounded-md transition-all ${activeTab === 'risk' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-400'}`}>Risk Assess</button>
-            </div>
-            <div className="flex-1 overflow-y-auto pr-0.5 scrollbar-thin text-left select-text">
-              {selectedNodeDetails ? (
-                <div className="space-y-4 animate-[fadeIn_0.15s_ease-out]">
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                    <h3 className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase"><Cpu className="w-3.5 h-3.5 text-cyan-500" /> Architecture Blueprint</h3>
-                    <button onClick={() => setSelectedNodeDetails(null)} className="text-[9px] font-bold text-cyan-600 hover:text-cyan-500 bg-white px-2.5 py-1 rounded-md border border-slate-200/60 shadow-sm"><ArrowLeft className="w-2.5 h-2.5 inline mr-1" /> Back</button>
-                  </div>
-                  
-                  {/* 👇 核心修复：100% 完整恢复的三个面板 👇 */}
-                  {activeTab === 'overview' && (
-                    <div className="space-y-3">
-                      <div><div className="text-[8px] text-slate-400 font-bold uppercase">变革项目节点</div><div className="text-sm font-bold text-slate-800 mt-0.5">{selectedNodeDetails.label}</div></div>
-                      <div><div className="text-[8px] text-slate-400 font-bold uppercase mb-1">精细化指导白皮书</div><p className="text-[12px] text-slate-600 leading-relaxed bg-white p-3.5 border border-slate-100 rounded-xl whitespace-pre-line shadow-sm">{selectedNodeDetails.description}</p></div>
-                    </div>
-                  )}
-
-                  {activeTab === 'roi' && (
-                    <div className="space-y-3 bg-white p-3.5 border border-slate-100 rounded-xl font-sans shadow-sm text-xs text-slate-600">
-                      <div className="text-[9px] text-cyan-600 font-bold tracking-widest flex items-center gap-1 uppercase font-mono"><BarChart3 className="w-3 h-3" /> ROI Evaluation Panel</div>
-                      <div className="border-b border-slate-50 pb-2 flex justify-between items-center"><span>投资回收期周期</span><span className="font-mono text-slate-800 font-bold">1.4 Years</span></div>
-                      <div className="border-b border-slate-50 pb-2 flex justify-between items-center"><span>静态成本节约效益</span><span className="font-mono text-cyan-600 font-bold">+24.5%</span></div>
-                      <div className="flex justify-between items-center"><span>技术资本化率</span><span className="font-mono text-cyan-600 font-bold">89.2%</span></div>
-                    </div>
-                  )}
-
-                  {activeTab === 'risk' && (
-                    <div className="bg-white p-3.5 border border-slate-100 rounded-xl font-sans shadow-sm text-xs text-slate-600 space-y-2">
-                      <div className="text-[9px] text-amber-500 font-bold tracking-widest flex items-center gap-1 uppercase font-mono"><ShieldAlert className="w-3 h-3" /> Risk Assessment</div>
-                      <p className="leading-relaxed text-slate-500">变革阻力评级：<span className="text-cyan-600 font-bold font-mono">LOW</span>。建议加强跨部门共享机制的利益宣贯，降低组织壁垒。</p>
-                    </div>
-                  )}
-                  {/* 👆 核心修复结束 👆 */}
-
-                </div>
-              ) : (
-                <div className="space-y-3 h-full flex flex-col animate-[fadeIn_0.15s_ease-out]">
-                  <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2"><FileText className="w-3.5 h-3.5 text-cyan-500" /><h3 className="text-[10px] font-bold text-slate-400 uppercase">Consultant Insight Mode</h3></div>
-                  <div className="text-[12px] text-slate-600 leading-relaxed font-medium whitespace-pre-line flex-1 bg-white p-3.5 border border-slate-100 rounded-xl overflow-y-auto shadow-sm">{summary}</div>
-                </div>
-              )}
+            <div className="rounded-md border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">
+              Gemini
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 h-full relative bg-[#f4f7f9] bg-[radial-gradient(circle_at_50%_40%,rgba(6,182,212,0.03)_0%,rgba(6,182,212,0.005)_50%,transparent_75%)]">
-        {nodes.length > 0 ? (
-          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={(_, node: any) => setSelectedNodeDetails(node.data?.rawDetails)} onPaneClick={() => setSelectedNodeDetails(null)} fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.1} maxZoom={1.5}>
-            <Background color="#cbd5e1" gap={28} size={1} />
-            <Controls className="bg-white border-none text-slate-600 rounded-xl overflow-hidden p-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.04)] hover:[&_button]:bg-slate-50 [&_svg]:fill-slate-400" />
-            <MiniMap nodeColor="#bae6fd" maskColor="rgba(250, 251, 252, 0.85)" className="bg-white border-none rounded-xl overflow-hidden hidden md:block" style={{ width: 140, height: 90 }} />
-            <Panel position="top-center" className="bg-white/90 backdrop-blur-md border border-white/60 px-5 py-1.5 rounded-full flex items-center gap-4 shadow-[0_10px_25px_rgba(0,0,0,0.02)] text-[9px] text-slate-500 font-mono tracking-wider">
-              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" /> ENGINE: ACTIVE</span>
-              <span className="text-slate-200">|</span><span>NODES: <span className="text-slate-800 font-bold">{nodes.length}</span></span>
-              <span className="text-slate-200">|</span><span>PATHS: <span className="text-slate-800 font-bold">{edges.length}</span></span>
+        <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="grid grid-cols-3 gap-2">
+            {metricTiles.map((metric) => (
+              <div key={metric.label} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-slate-400">{metric.icon}</div>
+                <div className="font-mono text-lg font-black text-slate-950">{metric.value}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{metric.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <section className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <label htmlFor="prompt" className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                场景目标
+              </label>
+              <button
+                type="button"
+                onClick={clearCanvas}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600 shadow-sm transition hover:border-rose-200 hover:text-rose-600"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                清空
+              </button>
+            </div>
+
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              {scenarioPrompts.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => setPrompt(item.prompt)}
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              id="prompt"
+              className="h-32 w-full resize-none rounded-[8px] border border-slate-200 bg-white p-3 text-sm font-semibold leading-relaxed text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+              placeholder="输入任意业务、学习、科研、运营、产品、创作或项目管理目标..."
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={loading || !prompt.trim()}
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+              生成 AgentFlow 拓扑
+            </button>
+          </section>
+
+          <section className="mt-4 rounded-[8px] border border-slate-200 bg-white p-3">
+            <div className="grid grid-cols-3 gap-1 rounded-[8px] bg-slate-100 p-1">
+              {[
+                ['overview', '洞察'],
+                ['ops', '执行'],
+                ['risk', '风险'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTab(key as 'overview' | 'ops' | 'risk')}
+                  className={`rounded-md py-2 text-xs font-black transition ${
+                    activeTab === key ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 min-h-[184px] rounded-[8px] border border-slate-100 bg-slate-50 p-3">
+              <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+                {errorState ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : selectedNodeDetails ? <Cpu className="h-3.5 w-3.5 text-cyan-600" /> : <FileText className="h-3.5 w-3.5 text-cyan-600" />}
+                {errorState ? 'Service Notice' : selectedNodeDetails ? 'Node Intelligence' : 'Workspace Insight'}
+              </div>
+
+              {errorState && !selectedNodeDetails ? (
+                <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm leading-relaxed text-amber-900">
+                  <div className="font-black">{errorState.title}</div>
+                  <p className="mt-1 font-semibold">{errorState.body}</p>
+                  <p className="mt-2 text-xs font-bold text-amber-700">{errorState.action}</p>
+                </div>
+              ) : activeTab === 'overview' ? (
+                <div className="whitespace-pre-line text-sm font-semibold leading-relaxed text-slate-600">
+                  {selectedNodeDetails ? (
+                    <>
+                      <h2 className="mb-2 text-base font-black text-slate-950">{selectedNodeDetails.label}</h2>
+                      <p>{selectedNodeDetails.description}</p>
+                    </>
+                  ) : (
+                    summary
+                  )}
+                </div>
+              ) : null}
+
+              {activeTab === 'ops' && !errorState && (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">工作节点</span>
+                    <span className="font-mono font-black text-slate-950">{nodes.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">依赖链路</span>
+                    <span className="font-mono font-black text-cyan-700">{edges.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-500">建议节奏</span>
+                    <span className="font-mono font-black text-emerald-600">{hasCanvas ? '分阶段执行' : '待生成'}</span>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'risk' && !errorState && (
+                <div className="space-y-3 text-sm font-semibold leading-relaxed text-slate-600">
+                  <p>{hasCanvas ? '优先检查输入是否清晰、关键依赖是否闭环、评审节点是否足够靠前。' : '生成拓扑后，这里会用于审查依赖缺口、执行风险和治理动作。'}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['目标', '依赖', '反馈'].map((item) => (
+                      <div key={item} className="rounded-md border border-slate-200 bg-white p-2 text-center">
+                        <div className="font-mono text-sm font-black text-slate-700">{hasCanvas ? 'OK' : '-'}</div>
+                        <div className="text-[10px] font-black text-slate-500">{item}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="border-t border-slate-100 px-4 py-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+            <span className={`h-2 w-2 rounded-full shadow-[0_0_0_4px_rgba(14,165,233,0.12)] ${errorState ? 'bg-amber-500' : hasCanvas ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+            <span className="truncate">{status}</span>
+          </div>
+        </div>
+      </aside>
+
+      <section className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fafc_0%,#eef7f9_48%,#f8fafc_100%)]" />
+        <div className="absolute inset-0 opacity-45 [background-image:radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:28px_28px]" />
+
+        {hasCanvas ? (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={(_, node) => setSelectedNodeDetails(node.data.rawDetails)}
+            onPaneClick={() => setSelectedNodeDetails(null)}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.25}
+            maxZoom={1.5}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background color="#d7e3ec" gap={28} size={1} />
+            <Controls className="overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-lg [&_button]:border-slate-100 [&_button]:bg-white [&_svg]:fill-slate-500" />
+            <Panel position="top-center" className="!m-4">
+              <div className="flex items-center gap-3 rounded-[8px] border border-white/80 bg-white/90 px-4 py-2 text-xs font-black text-slate-600 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                <span className="flex items-center gap-2 text-cyan-700">
+                  <Play className="h-3.5 w-3.5 fill-cyan-600" />
+                  AgentFlow Canvas
+                </span>
+                <span className="h-4 w-px bg-slate-200" />
+                <span>{nodes.length} nodes</span>
+                <span>{edges.length} paths</span>
+              </div>
             </Panel>
           </ReactFlow>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center animate-[fadeIn_0.4s_ease-out]" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '28px 28px' }}>
-            <div className="p-8 bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 text-center shadow-[0_20px_50px_rgba(0,0,0,0.02)] space-y-4 max-w-sm">
-              <div className="w-12 h-12 rounded-2xl bg-cyan-50/80 border border-cyan-100 flex items-center justify-center mx-auto"><Cpu className="w-5 h-5 text-cyan-500 animate-pulse" /></div>
-              <div className="space-y-1"><h3 className="text-sm font-bold text-slate-700 tracking-wide">云端拓扑引擎就绪</h3><p className="text-xs text-slate-400 leading-relaxed px-2">请在左侧投递转型构想。指令下达后，商业蓝图将在此实时生成。</p></div>
+          <div className="relative z-10 flex h-full items-center justify-center px-6">
+            <div className="max-w-xl rounded-[8px] border border-white/80 bg-white/88 p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[8px] border border-cyan-100 bg-cyan-50 text-cyan-700">
+                <Route className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-xl font-black text-slate-950">从空画布开始编排任何场景</h2>
+              <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-500">
+                输入一个目标，AgentFlow Orchestrator 会把它拆成可执行节点、依赖关系和风险检查点。这里不会预加载示例，生成结果完全来自你的场景。
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-black text-slate-500 sm:grid-cols-4">
+                {scenarioPrompts.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => setPrompt(item.prompt)}
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

@@ -1,32 +1,126 @@
-# ⚡ AI-Canvas Platform | 次世代企业架构与数字化战略拓扑推演平台
+# AgentFlow Studio
 
-[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015.1-black?logo=next.dotjs)](https://nextjs.org/)
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![LangChain](https://img.shields.io/badge/AI%20Orchestration-LangChain-1C3C3C?logo=chainlink)](https://js.langchain.com/)
-[![ReactFlow](https://img.shields.io/badge/Topology-React%20Flow-06b6d4)](https://reactflow.dev/)
+AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入任意业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会将目标拆解成结构化节点和依赖链路，前端用 React Flow 渲染成可交互的执行拓扑。
 
-AI-Canvas 是一款专为企业高级管理咨询、数字化转型战略落地设计的次世代**非线性拓扑推演大屏系统**。平台打破了传统文字报告的孤岛效应，利用大语言模型（LLM）的图谱解构能力，将模糊的组织战略诉求物理映射为具备强依赖链路、高精细化白皮书、ROI 投资回报率及风险评估矩阵的**大局观数字架构图谱**。
+项目打开后默认是空画布，不预加载示例拓扑。所有节点都来自用户输入和 Gemini 生成结果，更适合作为可投入使用的成熟 agent 产品底座。
 
----
+## 项目能力
 
-## 🎨 平台全景视窗预览
-> 👇 建议替换为您在本地截取的 preview.gif 真实路径 👇
-![系统多维拓扑控制大屏](./assets/preview.gif)
+- **通用场景拆解**：不绑定单一行业，可覆盖产品上线、运营活动、学习计划、科研项目、内容生产、团队协作等任务。
+- **AgentFlow Orchestrator**：FastAPI + Google GenAI SDK 调用 Gemini，并要求模型输出稳定的结构化 JSON。
+- **可执行拓扑画布**：节点代表能力、阶段、决策、风险或治理动作；连线代表真实依赖关系。
+- **成熟运行状态**：提供健康检查、错误提示、空画布状态、节点详情、执行视角和风险视角。
+- **可扩展架构**：前后端分离，后端 API 输出稳定 schema，便于后续接入登录、项目保存、模板库和多人协作。
 
----
+## 技术栈
 
-## 🏗️ 全栈大统一系统架构设计
+| 层级 | 技术 |
+| --- | --- |
+| Frontend | Next.js 15, React 19, Tailwind CSS, React Flow, Lucide React |
+| Backend | FastAPI, Pydantic, Google GenAI SDK, Gemini |
+| Visualization | Custom React Flow nodes, animated smoothstep edges |
 
-本平台采用严苛的**前后端分离及云端大模型代理（Backend Proxy）架构**，焊死了客户端密钥泄露的潜在安全隐患：
+## 目录结构
 
 ```text
-[ 前端自适应业务层 (Next.js 15) ] 
-       │ (1. 投递非线性战略构想 - 零密钥暴露风险)
-       ▼
-[ 工业级全栈后端网关 (FastAPI) ] ◄─── 加载本地安全策略 (.env 物理隔离)
-       │ (2. 声明式 Pydantic 数据契约约束)
-       ▼
-[ LangChain 编排引擎 & 约束 AST 解析 ]
-       │ (3. 双向状态流控制 & Gemini 3.5 高并发重试)
-       ▼
-[ 智能解构节点与非线性依赖拓扑流 (React Flow) ] ──► 渲染次世代空气感磨砂玻璃大屏
+AI-Canvas-V1/
+  canvas-frontend/     Next.js AgentFlow Studio 工作台
+  canvas-backend/      FastAPI AgentFlow Orchestrator 服务
+  assets/              项目素材与文档
+```
+
+## 本地启动
+
+### 1. 配置 Gemini API Key
+
+```powershell
+cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
+copy .env.example .env
+```
+
+编辑 `canvas-backend\.env`：
+
+```env
+GEMINI_API_KEY=你的_Gemini_API_Key
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+### 2. 启动后端
+
+```powershell
+cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
+.\Scripts\activate
+python main.py
+```
+
+后端地址：
+
+```text
+http://localhost:8000
+```
+
+健康检查：
+
+```text
+GET http://localhost:8000/api/health
+```
+
+### 3. 启动前端
+
+另开一个 PowerShell：
+
+```powershell
+cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-frontend
+npm.cmd run dev
+```
+
+打开：
+
+```text
+http://localhost:3000
+```
+
+## 后端 API
+
+```text
+POST http://localhost:8000/api/generate-canvas
+```
+
+请求体：
+
+```json
+{
+  "user_prompt": "为一次线上会员增长活动设计 agent 编排：包含人群洞察、权益设计、内容投放、自动化触达、数据监控、风险控制和复盘。"
+}
+```
+
+响应结构：
+
+```json
+{
+  "summary": "整体策略摘要",
+  "nodes": [
+    {
+      "id": "audience_research",
+      "label": "人群洞察",
+      "type": "Research",
+      "description": "识别目标用户、增长机会和关键假设。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "audience_research",
+      "target": "campaign_planning",
+      "label": "洞察输入活动方案"
+    }
+  ]
+}
+```
+
+## 可投入使用的下一步
+
+- 接入数据库保存画布。
+- 增加用户登录和项目空间。
+- 增加模板库、版本历史和导出 PNG/PDF。
+- 为不同场景增加专属 system prompt 或 agent profile。
+- 增加后端重试、请求日志、限流和错误追踪。
