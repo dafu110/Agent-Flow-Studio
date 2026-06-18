@@ -1,6 +1,6 @@
 # AgentFlow Studio Frontend
 
-Next.js 15 通用智能体工作流编排台。
+Next.js 15 通用智能体工作流编排台，包含登录、项目空间、模板、版本历史和导出入口。
 
 ## Scripts
 

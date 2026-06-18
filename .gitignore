@@ -3,4 +3,5 @@ canvas-frontend/node_modules/
 canvas-frontend/.next/
 canvas-backend/venv/
 canvas-backend/__pycache__/
+canvas-backend/data/
 .env

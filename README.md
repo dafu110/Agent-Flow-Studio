@@ -1,37 +1,39 @@
 # AgentFlow Studio
 
-AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入任意业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会将目标拆解成结构化节点和依赖链路，前端用 React Flow 渲染成可交互的执行拓扑。
+AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会拆解为结构化节点和依赖链路，前端用 React Flow 渲染成可交互执行拓扑。
 
-项目打开后默认是空画布，不预加载示例拓扑。所有节点都来自用户输入和 Gemini 生成结果，更适合作为可投入使用的成熟 agent 产品底座。
+当前版本已经具备可投入使用的最小产品闭环：用户登录、项目空间、模板库、画布保存、版本历史、PNG/PDF 导出、请求日志、限流、错误追踪和 Gemini 重试。
 
-## 项目能力
+## 核心能力
 
-- **通用场景拆解**：不绑定单一行业，可覆盖产品上线、运营活动、学习计划、科研项目、内容生产、团队协作等任务。
-- **AgentFlow Orchestrator**：FastAPI + Google GenAI SDK 调用 Gemini，并要求模型输出稳定的结构化 JSON。
-- **可执行拓扑画布**：节点代表能力、阶段、决策、风险或治理动作；连线代表真实依赖关系。
-- **成熟运行状态**：提供健康检查、错误提示、空画布状态、节点详情、执行视角和风险视角。
-- **可扩展架构**：前后端分离，后端 API 输出稳定 schema，便于后续接入登录、项目保存、模板库和多人协作。
+- **账号与项目空间**：注册/登录后进入个人项目空间，每个项目可保存多张画布。
+- **Gemini Agent 编排**：FastAPI + Google GenAI SDK 调用 Gemini，按稳定 schema 输出工作流拓扑。
+- **模板库与 Agent Profile**：内置产品、运营、学习、科研模板，并支持不同场景 profile。
+- **画布持久化**：生成结果自动保存到 SQLite；再次生成会写入新版本。
+- **版本历史**：每次保存都产生版本，可在前端回看并载入。
+- **导出能力**：前端支持 PNG 下载和 PDF 打印导出。
+- **工程治理**：后端提供健康检查、请求日志、限流、重试和错误返回。
 
 ## 技术栈
 
 | 层级 | 技术 |
 | --- | --- |
 | Frontend | Next.js 15, React 19, Tailwind CSS, React Flow, Lucide React |
-| Backend | FastAPI, Pydantic, Google GenAI SDK, Gemini |
-| Visualization | Custom React Flow nodes, animated smoothstep edges |
+| Backend | FastAPI, Pydantic, SQLite, Google GenAI SDK, Gemini |
+| Storage | SQLite 本地数据库 `canvas-backend/data/agentflow.db` |
 
 ## 目录结构
 
 ```text
 AI-Canvas-V1/
-  canvas-frontend/     Next.js AgentFlow Studio 工作台
-  canvas-backend/      FastAPI AgentFlow Orchestrator 服务
+  canvas-frontend/     AgentFlow Studio 前端工作台
+  canvas-backend/      AgentFlow Orchestrator API
   assets/              项目素材与文档
 ```
 
 ## 本地启动
 
-### 1. 配置 Gemini API Key
+### 1. 配置后端环境
 
 ```powershell
 cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
@@ -43,6 +45,10 @@ copy .env.example .env
 ```env
 GEMINI_API_KEY=你的_Gemini_API_Key
 GEMINI_MODEL=gemini-2.5-flash
+APP_SECRET=请改成足够长的随机字符串
+TOKEN_TTL_SECONDS=604800
+RATE_LIMIT_PER_MINUTE=90
+GEMINI_MAX_RETRIES=3
 ```
 
 ### 2. 启动后端
@@ -53,12 +59,6 @@ cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
 python main.py
 ```
 
-后端地址：
-
-```text
-http://localhost:8000
-```
-
 健康检查：
 
 ```text
@@ -66,8 +66,6 @@ GET http://localhost:8000/api/health
 ```
 
 ### 3. 启动前端
-
-另开一个 PowerShell：
 
 ```powershell
 cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-frontend
@@ -80,47 +78,40 @@ npm.cmd run dev
 http://localhost:3000
 ```
 
-## 后端 API
+## 主要 API
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/auth/register` | 注册账号 |
+| `POST` | `/api/auth/login` | 登录并获取 token |
+| `GET` | `/api/projects` | 获取项目空间 |
+| `POST` | `/api/projects` | 创建项目 |
+| `GET` | `/api/projects/{project_id}/canvases` | 获取项目画布 |
+| `POST` | `/api/generate-canvas` | 调用 Gemini 生成并保存画布 |
+| `GET` | `/api/canvases/{canvas_id}/versions` | 获取版本历史 |
+| `GET` | `/api/templates` | 获取内置模板 |
+| `GET` | `/api/logs` | 获取最近请求日志 |
+
+除注册、登录和健康检查外，其余接口需要：
 
 ```text
-POST http://localhost:8000/api/generate-canvas
+Authorization: Bearer <token>
 ```
 
-请求体：
+## 生成画布请求
 
 ```json
 {
-  "user_prompt": "为一次线上会员增长活动设计 agent 编排：包含人群洞察、权益设计、内容投放、自动化触达、数据监控、风险控制和复盘。"
+  "user_prompt": "为一次线上会员增长活动设计 agent 编排：包含人群洞察、权益设计、内容投放、自动化触达、数据监控、风险控制和复盘。",
+  "project_id": 1,
+  "profile": "operations"
 }
 ```
 
-响应结构：
+## 下一步扩展
 
-```json
-{
-  "summary": "整体策略摘要",
-  "nodes": [
-    {
-      "id": "audience_research",
-      "label": "人群洞察",
-      "type": "Research",
-      "description": "识别目标用户、增长机会和关键假设。"
-    }
-  ],
-  "edges": [
-    {
-      "source": "audience_research",
-      "target": "campaign_planning",
-      "label": "洞察输入活动方案"
-    }
-  ]
-}
-```
-
-## 可投入使用的下一步
-
-- 接入数据库保存画布。
-- 增加用户登录和项目空间。
-- 增加模板库、版本历史和导出 PNG/PDF。
-- 为不同场景增加专属 system prompt 或 agent profile。
-- 增加后端重试、请求日志、限流和错误追踪。
+- 把 SQLite 替换为 Postgres。
+- 增加团队成员、权限和共享链接。
+- 增加画布节点手动编辑后的持久化。
+- 增加服务端 PNG/PDF 导出队列。
+- 接入 OpenTelemetry 或 Sentry 做生产级观测。
