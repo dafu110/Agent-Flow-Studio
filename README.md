@@ -107,11 +107,3 @@ Authorization: Bearer <token>
   "profile": "operations"
 }
 ```
-
-## 下一步扩展
-
-- 把 SQLite 替换为 Postgres。
-- 增加团队成员、权限和共享链接。
-- 增加画布节点手动编辑后的持久化。
-- 增加服务端 PNG/PDF 导出队列。
-- 接入 OpenTelemetry 或 Sentry 做生产级观测。
