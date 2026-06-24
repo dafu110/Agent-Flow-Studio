@@ -36,7 +36,10 @@ AI-Canvas-V1/
 ### 1. 配置后端环境
 
 ```powershell
-cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
+cd canvas-backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 copy .env.example .env
 ```
 
@@ -54,9 +57,9 @@ GEMINI_MAX_RETRIES=3
 ### 2. 启动后端
 
 ```powershell
-cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-backend
-.\Scripts\activate
-python main.py
+cd canvas-backend
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 健康检查：
@@ -97,6 +100,16 @@ http://localhost:3000
 ```text
 Authorization: Bearer <token>
 ```
+
+## 后端验证
+
+```powershell
+cd canvas-backend
+python -m py_compile main.py schemas.py
+python -m unittest discover -s tests
+```
+
+当前后端测试覆盖账号注册/登录、项目空间、模板库、请求日志、画布保存、版本历史、项目所有权隔离和 Gemini 拓扑 JSON 解析。仓库不再提交 `Lib/`、`Scripts/`、`pyvenv.cfg` 等虚拟环境文件，依赖通过 `canvas-backend/requirements.txt` 复现。
 
 ## 生成画布请求
 

@@ -1,7 +1,13 @@
 # 物理隔离前后端无底洞依赖
 canvas-frontend/node_modules/
 canvas-frontend/.next/
+canvas-backend/.venv/
 canvas-backend/venv/
+canvas-backend/Lib/
+canvas-backend/Scripts/
+canvas-backend/pyvenv.cfg
 canvas-backend/__pycache__/
+canvas-backend/.pytest_cache/
+canvas-backend/tests/__pycache__/
 canvas-backend/data/
 .env
