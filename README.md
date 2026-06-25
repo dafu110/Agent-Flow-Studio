@@ -1,4 +1,6 @@
-# AgentFlow Studio
+# AgentFlow Studio Enterprise
+
+Enterprise-grade AI Agent workflow orchestration platform with visual DAG design, executable nodes, run history, approval gates, credential management, and integration-ready architecture.
 
 AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会拆解为结构化节点和依赖链路，前端用 React Flow 渲染成可交互执行拓扑。
 
