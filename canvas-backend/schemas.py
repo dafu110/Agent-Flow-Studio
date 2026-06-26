@@ -73,6 +73,14 @@ class ProjectOut(BaseModel):
     updated_at: str
 
 
+class ProjectMemberOut(BaseModel):
+    project_id: int
+    user_id: int
+    email: str
+    role: str
+    created_at: str
+
+
 class CanvasSave(BaseModel):
     project_id: int
     title: str = Field(..., min_length=1, max_length=120)
@@ -141,6 +149,19 @@ class ConnectorOut(BaseModel):
     risk_level: str
 
 
+class ConnectorInvocationOut(BaseModel):
+    id: int
+    run_id: int
+    step_id: Optional[int]
+    connector_id: str
+    status: str
+    duration_ms: int
+    request: dict[str, Any]
+    response: dict[str, Any]
+    error: str
+    created_at: str
+
+
 class WorkflowRunCreate(BaseModel):
     trigger_type: str = Field(default="manual", max_length=40)
     inputs: dict[str, Any] = Field(default_factory=dict)
@@ -177,6 +198,7 @@ class WorkflowRunOut(BaseModel):
     duration_ms: int
     total_tokens: int
     total_cost_usd: float
+    queue_status: str = ""
     inputs: dict[str, Any]
     error: str
     steps: List[StepRunOut] = Field(default_factory=list)
@@ -185,3 +207,20 @@ class WorkflowRunOut(BaseModel):
 class ApprovalAction(BaseModel):
     approved: bool = True
     note: str = Field(default="", max_length=500)
+
+
+class ObservabilitySummary(BaseModel):
+    total_runs: int
+    active_runs: int
+    failed_runs: int
+    completed_runs: int
+    waiting_approval_runs: int
+    total_steps: int
+    total_tokens: int
+    total_cost_usd: float
+    avg_duration_ms: float
+    connector_invocations: int
+    connector_failures: int
+    recent_errors: List[dict[str, Any]]
+    run_status_counts: dict[str, int]
+    step_status_counts: dict[str, int]

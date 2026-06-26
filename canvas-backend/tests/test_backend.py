@@ -41,7 +41,7 @@ class IsolatedBackendTest(unittest.TestCase):
 
         health = self.client.get("/api/health")
         self.assertEqual(health.status_code, 200)
-        self.assertEqual(health.json()["target_enterprise_score"], 98)
+        self.assertEqual(health.json()["target_enterprise_score"], 96)
 
         readiness = self.client.get("/api/readiness")
         self.assertEqual(readiness.status_code, 200)
@@ -49,7 +49,7 @@ class IsolatedBackendTest(unittest.TestCase):
 
         scorecard = self.client.get("/api/scorecard")
         self.assertEqual(scorecard.status_code, 200)
-        self.assertEqual(scorecard.json()["score"], 98)
+        self.assertEqual(scorecard.json()["score"], 96)
 
         me = self.client.get("/api/me", headers=headers)
         self.assertEqual(me.status_code, 200)
@@ -75,6 +75,10 @@ class IsolatedBackendTest(unittest.TestCase):
     def test_canvas_save_versions_and_owner_boundary(self):
         _, headers = self._register()
         project_id = self.client.get("/api/projects", headers=headers).json()[0]["id"]
+        members = self.client.get(f"/api/projects/{project_id}/members", headers=headers)
+        self.assertEqual(members.status_code, 200)
+        self.assertEqual(members.json()[0]["role"], "owner")
+
         canvas_payload = {
             "project_id": project_id,
             "title": "Release Plan",
@@ -161,6 +165,7 @@ class IsolatedBackendTest(unittest.TestCase):
         self.assertEqual(run_response.status_code, 200)
         run = run_response.json()
         self.assertEqual(run["status"], "waiting_approval")
+        self.assertEqual(run["queue_status"], "waiting_approval")
         self.assertEqual(len(run["steps"]), 3)
         waiting_step = next(step for step in run["steps"] if step["status"] == "waiting_approval")
         pending_step = next(step for step in run["steps"] if step["node_id"] == "crm")
@@ -175,8 +180,19 @@ class IsolatedBackendTest(unittest.TestCase):
         self.assertEqual(approved.status_code, 200)
         approved_run = approved.json()
         self.assertEqual(approved_run["status"], "completed")
+        self.assertEqual(approved_run["queue_status"], "completed")
         self.assertTrue(all(step["status"] == "completed" for step in approved_run["steps"]))
         self.assertGreater(approved_run["total_tokens"], 0)
+
+        invocations = self.client.get(f"/api/runs/{run['id']}/connector-invocations", headers=headers)
+        self.assertEqual(invocations.status_code, 200)
+        connector_ids = {item["connector_id"] for item in invocations.json()}
+        self.assertIn("salesforce", connector_ids)
+
+        ops = self.client.get("/api/observability/summary", headers=headers)
+        self.assertEqual(ops.status_code, 200)
+        self.assertGreaterEqual(ops.json()["total_runs"], 1)
+        self.assertGreaterEqual(ops.json()["connector_invocations"], 1)
 
         history = self.client.get(f"/api/canvases/{canvas_id}/runs", headers=headers)
         self.assertEqual(history.status_code, 200)

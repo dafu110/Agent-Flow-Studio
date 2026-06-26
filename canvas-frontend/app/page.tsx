@@ -138,6 +138,7 @@ type WorkflowRun = {
   duration_ms: number;
   total_tokens: number;
   total_cost_usd: number;
+  queue_status: string;
   inputs: Record<string, unknown>;
   error: string;
   steps: StepRun[];
@@ -167,13 +168,30 @@ type GenerateCanvasResponse = {
   version: VersionRecord;
 };
 
+type ObservabilitySummary = {
+  total_runs: number;
+  active_runs: number;
+  failed_runs: number;
+  completed_runs: number;
+  waiting_approval_runs: number;
+  total_steps: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  avg_duration_ms: number;
+  connector_invocations: number;
+  connector_failures: number;
+  recent_errors: Array<Record<string, unknown>>;
+  run_status_counts: Record<string, number>;
+  step_status_counts: Record<string, number>;
+};
+
 type AgentNodeData = {
   label: React.ReactNode;
   rawDetails: CanvasNode;
 } & Record<string, unknown>;
 
 type AgentNode = Node<AgentNodeData, 'agentNode'>;
-type RightTab = 'inspect' | 'runs' | 'versions' | 'logs';
+type RightTab = 'inspect' | 'runs' | 'ops' | 'versions' | 'logs';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 const tokenKey = 'agentflow_token';
@@ -306,6 +324,7 @@ export default function CanvasPage() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [logs, setLogs] = useState<RequestLog[]>([]);
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
+  const [observability, setObservability] = useState<ObservabilitySummary | null>(null);
   const [profile, setProfile] = useState('general');
   const [nodes, setNodes, onNodesChange] = useNodesState<AgentNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -352,17 +371,23 @@ export default function CanvasPage() {
     setRuns(rows);
   };
 
+  const refreshObservability = async () => {
+    setObservability(await apiFetch<ObservabilitySummary>('/api/observability/summary'));
+  };
+
   const loadWorkspace = async () => {
-    const [projectRows, templateRows, connectorRows, logRows] = await Promise.all([
+    const [projectRows, templateRows, connectorRows, logRows, observabilityRows] = await Promise.all([
       apiFetch<Project[]>('/api/projects'),
       apiFetch<TemplateRecord[]>('/api/templates'),
       apiFetch<Connector[]>('/api/connectors'),
       apiFetch<RequestLog[]>('/api/logs'),
+      apiFetch<ObservabilitySummary>('/api/observability/summary'),
     ]);
     setProjects(projectRows);
     setTemplates(templateRows);
     setConnectors(connectorRows);
     setLogs(logRows);
+    setObservability(observabilityRows);
     const nextProjectId = projectId ?? projectRows[0]?.id ?? null;
     setProjectId(nextProjectId);
     if (nextProjectId) {
@@ -501,6 +526,7 @@ export default function CanvasPage() {
         }),
       });
       setRuns((items) => [run, ...items.filter((item) => item.id !== run.id)]);
+      await refreshObservability();
       setActiveTab('runs');
       setStatus(`Run #${run.id}: ${run.status}`);
     } catch (err) {
@@ -521,6 +547,7 @@ export default function CanvasPage() {
         body: JSON.stringify({ approved, note: approved ? 'Approved in AgentFlow Studio' : 'Rejected in AgentFlow Studio' }),
       });
       setRuns((items) => [run, ...items.filter((item) => item.id !== run.id)]);
+      await refreshObservability();
       setStatus(`Run #${run.id}: ${run.status}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Approval failed';
@@ -769,10 +796,11 @@ export default function CanvasPage() {
         )}
 
         <aside className="absolute right-4 top-20 z-10 hidden w-96 rounded-[8px] border border-white/80 bg-white/90 p-3 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl xl:block">
-          <div className="grid grid-cols-4 gap-1 rounded-[8px] bg-slate-100 p-1">
+          <div className="grid grid-cols-5 gap-1 rounded-[8px] bg-slate-100 p-1">
             {[
               ['inspect', 'Inspect'],
               ['runs', 'Runs'],
+              ['ops', 'Ops'],
               ['versions', 'Versions'],
               ['logs', 'Logs'],
             ].map(([key, label]) => (
@@ -803,6 +831,7 @@ export default function CanvasPage() {
                       <span className={`rounded-md border px-2 py-1 text-[10px] font-black uppercase ${statusClass(run.status)}`}>{run.status}</span>
                     </div>
                     <div className="mt-1 text-xs text-slate-400">{run.trigger_type} / {run.total_tokens} tokens / ${run.total_cost_usd.toFixed(4)}</div>
+                    <div className="mt-1 text-[11px] font-bold text-slate-400">Queue: {run.queue_status || 'inline'}</div>
                     <div className="mt-3 grid gap-2">
                       {run.steps.map((step) => (
                         <div key={step.id} className="rounded-md border border-slate-200 p-2">
@@ -816,6 +845,50 @@ export default function CanvasPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {!error && activeTab === 'ops' && (
+              <div className="grid gap-3">
+                {observability ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        ['Runs', observability.total_runs],
+                        ['Active', observability.active_runs],
+                        ['Steps', observability.total_steps],
+                        ['Tokens', observability.total_tokens],
+                        ['Cost', `$${observability.total_cost_usd.toFixed(4)}`],
+                        ['Connectors', observability.connector_invocations],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{label}</div>
+                          <div className="mt-1 font-mono text-lg font-black text-slate-950">{value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-md border border-slate-200 p-3">
+                      <div className="text-xs font-black text-slate-900">Run Status</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {Object.entries(observability.run_status_counts).map(([key, value]) => (
+                          <span key={key} className={`rounded border px-2 py-1 text-[10px] font-black uppercase ${statusClass(key)}`}>{key}: {value}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-slate-200 p-3">
+                      <div className="text-xs font-black text-slate-900">Recent Errors</div>
+                      <div className="mt-2 grid gap-2">
+                        {observability.recent_errors.length === 0 && <div className="text-xs text-slate-400">No recent API errors.</div>}
+                        {observability.recent_errors.slice(0, 5).map((item) => (
+                          <div key={String(item.id)} className="rounded border border-slate-200 p-2 text-[11px] text-slate-500">
+                            {String(item.status_code)} / {String(item.path)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-md border border-slate-200 p-3 text-xs text-slate-400">Observability data is loading.</div>
+                )}
               </div>
             )}
             {!error && activeTab === 'versions' && (
