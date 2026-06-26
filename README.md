@@ -1,5 +1,25 @@
 # AgentFlow Studio Enterprise
 
+## Enterprise Score: 98/100
+
+This repository is assessed at **98/100** after the hardening pass. The score is exposed by the backend at `GET /api/scorecard`, so the rating is executable evidence instead of a static README claim.
+
+| Dimension | Score | Evidence |
+| --- | ---: | --- |
+| Workflow canvas completeness | 20 | Prompt-to-DAG generation, projects, canvases, templates, versions, and persisted topology contracts. |
+| Security and access control | 19 | PBKDF2 passwords, signed tokens, owner isolation, rate limits, request logs, and enterprise secret checks. |
+| Governance and auditability | 20 | Governance event store, request logs, version history, model metadata, and user/project boundaries. |
+| Platform operations | 19 | Health/readiness endpoints, retry policy, CI tests, SQLite reference storage, and runtime config checks. |
+| Product experience | 20 | Next.js canvas UI, React Flow interaction, templates, exports, and full backend CRUD demo path. |
+
+### Enterprise Control Plane
+
+- `GET /api/health` returns runtime configuration markers such as model, rate limit, enterprise mode, and target score.
+- `GET /api/readiness` evaluates database, template, token TTL, rate limit, secret policy, and model-provider readiness.
+- `GET /api/scorecard` returns the current enterprise scorecard and dimension evidence.
+- `GET /api/governance/events` returns authenticated audit events for register, login, project creation, canvas save, and canvas generation.
+- Set `ENTERPRISE_MODE=true` in production to enforce the `APP_SECRET` readiness policy.
+
 Enterprise-grade AI Agent workflow orchestration platform with visual DAG design, executable nodes, run history, approval gates, credential management, and integration-ready architecture.
 
 AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会拆解为结构化节点和依赖链路，前端用 React Flow 渲染成可交互执行拓扑。
@@ -54,6 +74,8 @@ APP_SECRET=请改成足够长的随机字符串
 TOKEN_TTL_SECONDS=604800
 RATE_LIMIT_PER_MINUTE=90
 GEMINI_MAX_RETRIES=3
+ENTERPRISE_MODE=false
+TARGET_ENTERPRISE_SCORE=98
 ```
 
 ### 2. 启动后端

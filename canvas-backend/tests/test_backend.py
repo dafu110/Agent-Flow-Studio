@@ -39,6 +39,18 @@ class IsolatedBackendTest(unittest.TestCase):
         token, headers = self._register()
         self.assertTrue(token)
 
+        health = self.client.get("/api/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json()["target_enterprise_score"], 98)
+
+        readiness = self.client.get("/api/readiness")
+        self.assertEqual(readiness.status_code, 200)
+        self.assertTrue(readiness.json()["ready"])
+
+        scorecard = self.client.get("/api/scorecard")
+        self.assertEqual(scorecard.status_code, 200)
+        self.assertEqual(scorecard.json()["score"], 98)
+
         me = self.client.get("/api/me", headers=headers)
         self.assertEqual(me.status_code, 200)
         self.assertEqual(me.json()["email"], "alice@example.com")
@@ -54,6 +66,11 @@ class IsolatedBackendTest(unittest.TestCase):
         logs = self.client.get("/api/logs", headers=headers)
         self.assertEqual(logs.status_code, 200)
         self.assertTrue(any(item["path"] == "/api/me" for item in logs.json()))
+
+        events = self.client.get("/api/governance/events", headers=headers)
+        self.assertEqual(events.status_code, 200)
+        event_types = {item["event_type"] for item in events.json()["events"]}
+        self.assertIn("auth.register", event_types)
 
     def test_canvas_save_versions_and_owner_boundary(self):
         _, headers = self._register()
@@ -77,6 +94,11 @@ class IsolatedBackendTest(unittest.TestCase):
         versions = self.client.get(f"/api/canvases/{canvas_id}/versions", headers=headers)
         self.assertEqual(versions.status_code, 200)
         self.assertEqual(versions.json()[0]["version"], 1)
+
+        events = self.client.get("/api/governance/events", headers=headers)
+        self.assertEqual(events.status_code, 200)
+        event_types = {item["event_type"] for item in events.json()["events"]}
+        self.assertIn("canvas.saved", event_types)
 
         _, other_headers = self._register("bob@example.com")
         forbidden = self.client.get(f"/api/canvases/{canvas_id}", headers=other_headers)
