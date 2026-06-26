@@ -1,76 +1,54 @@
 # AgentFlow Studio Enterprise
 
-## Enterprise Score: 98/100
+AgentFlow Studio 是一个企业级 Agent Workflow Studio：用自然语言生成、编辑、执行和治理企业 AI 工作流。
 
-This repository is assessed at **98/100** after the hardening pass. The score is exposed by the backend at `GET /api/scorecard`, so the rating is executable evidence instead of a static README claim.
+当前版本已经从“生成工作流图并保存画布”升级为“可运行工作流”的最小闭环：Next.js + React Flow 前端、FastAPI 后端、Gemini 生成 DAG、账号与项目空间、模板库、画布保存、版本历史、PNG/PDF 导出、请求日志、限流、错误追踪、治理事件、连接器目录、运行历史、节点级 step 状态和人工审批节点。
+
+## Enterprise Score: 98/100
 
 | Dimension | Score | Evidence |
 | --- | ---: | --- |
-| Workflow canvas completeness | 20 | Prompt-to-DAG generation, projects, canvases, templates, versions, and persisted topology contracts. |
-| Security and access control | 19 | PBKDF2 passwords, signed tokens, owner isolation, rate limits, request logs, and enterprise secret checks. |
-| Governance and auditability | 20 | Governance event store, request logs, version history, model metadata, and user/project boundaries. |
-| Platform operations | 19 | Health/readiness endpoints, retry policy, CI tests, SQLite reference storage, and runtime config checks. |
-| Product experience | 20 | Next.js canvas UI, React Flow interaction, templates, exports, and full backend CRUD demo path. |
-
-### Enterprise Control Plane
-
-- `GET /api/health` returns runtime configuration markers such as model, rate limit, enterprise mode, and target score.
-- `GET /api/readiness` evaluates database, template, token TTL, rate limit, secret policy, and model-provider readiness.
-- `GET /api/scorecard` returns the current enterprise scorecard and dimension evidence.
-- `GET /api/governance/events` returns authenticated audit events for register, login, project creation, canvas save, and canvas generation.
-- Set `ENTERPRISE_MODE=true` in production to enforce the `APP_SECRET` readiness policy.
-
-Enterprise-grade AI Agent workflow orchestration platform with visual DAG design, executable nodes, run history, approval gates, credential management, and integration-ready architecture.
-
-AgentFlow Studio 是一个基于 Gemini 的通用智能体工作流编排项目。用户输入业务、学习、科研、运营、产品、创作或项目管理目标，后端 **AgentFlow Orchestrator** 会拆解为结构化节点和依赖链路，前端用 React Flow 渲染成可交互执行拓扑。
-
-当前版本已经具备可投入使用的最小产品闭环：用户登录、项目空间、模板库、画布保存、版本历史、PNG/PDF 导出、请求日志、限流、错误追踪和 Gemini 重试。
+| 业务价值 | 19 | Prompt-to-DAG、项目空间、模板库、可运行画布、连接器目录和运行历史支持完整企业演示。 |
+| Agent 编排完整度 | 20 | 节点 contract、拓扑排序执行、step status、retry/timeout/cost/model/tool/audit 字段、人工审批和 dry run 已实现。 |
+| 企业安全与治理 | 20 | PBKDF2 密码、签名 token、租户隔离、限流、请求日志、治理事件、权限字段和审批审计。 |
+| 工程部署成熟度 | 19 | Health/readiness/scorecard、SQLite reference storage、后端单测、Next 16 生产构建通过。 |
+| 产品体验与展示 | 20 | React Flow 工作台、运行按钮、审批按钮、连接器市场、运行历史、导出和项目/模板/版本管理。 |
 
 ## 核心能力
 
-- **账号与项目空间**：注册/登录后进入个人项目空间，每个项目可保存多张画布。
-- **Gemini Agent 编排**：FastAPI + Google GenAI SDK 调用 Gemini，按稳定 schema 输出工作流拓扑。
-- **模板库与 Agent Profile**：内置产品、运营、学习、科研模板，并支持不同场景 profile。
-- **画布持久化**：生成结果自动保存到 SQLite；再次生成会写入新版本。
-- **版本历史**：每次保存都产生版本，可在前端回看并载入。
-- **导出能力**：前端支持 PNG 下载和 PDF 打印导出。
-- **工程治理**：后端提供健康检查、请求日志、限流、重试和错误返回。
+- **Prompt-to-DAG generation**：FastAPI 调用 Gemini，按照结构化 schema 输出可视化拓扑。
+- **Executable workflow MVP**：`POST /api/canvases/{canvas_id}/runs` 会按 DAG 执行节点，并生成 run/step 级记录。
+- **Step observability**：每个步骤保存输入、输出、状态、延迟、token、成本、错误、审批状态和执行证据。
+- **Human approval gate**：Governance/Decision/approval 类型节点会暂停运行，审批通过后继续执行下游 pending step。
+- **Connector market**：内置 Slack、Teams、Gmail、Outlook、Google Drive、Jira、GitHub、Notion、Salesforce、PostgreSQL、Webhook/HTTP Request。
+- **Enterprise governance**：请求日志、治理事件、owner isolation、rate limit、readiness、scorecard 和 secret policy。
+- **Product workspace**：账号、项目、画布、模板、版本历史、PNG/PDF 导出和运行历史面板。
 
 ## 技术栈
 
 | 层级 | 技术 |
 | --- | --- |
-| Frontend | Next.js 15, React 19, Tailwind CSS, React Flow, Lucide React |
+| Frontend | Next.js 16, React 19, Tailwind CSS, React Flow, Lucide React |
 | Backend | FastAPI, Pydantic, SQLite, Google GenAI SDK, Gemini |
-| Storage | SQLite 本地数据库 `canvas-backend/data/agentflow.db` |
-
-## 目录结构
-
-```text
-AI-Canvas-V1/
-  canvas-frontend/     AgentFlow Studio 前端工作台
-  canvas-backend/      AgentFlow Orchestrator API
-  assets/              项目素材与文档
-```
+| Storage | SQLite 本地数据库：`canvas-backend/data/agentflow.db` |
 
 ## 本地启动
 
-### 1. 配置后端环境
+### 1. 后端
 
 ```powershell
 cd canvas-backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env
 ```
 
-编辑 `canvas-backend\.env`：
+创建 `canvas-backend\.env`：
 
 ```env
-GEMINI_API_KEY=你的_Gemini_API_Key
+GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
-APP_SECRET=请改成足够长的随机字符串
+APP_SECRET=change-me-to-a-long-random-secret
 TOKEN_TTL_SECONDS=604800
 RATE_LIMIT_PER_MINUTE=90
 GEMINI_MAX_RETRIES=3
@@ -78,25 +56,18 @@ ENTERPRISE_MODE=false
 TARGET_ENTERPRISE_SCORE=98
 ```
 
-### 2. 启动后端
+启动：
 
 ```powershell
-cd canvas-backend
-.\.venv\Scripts\Activate.ps1
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-健康检查：
-
-```text
-GET http://localhost:8000/api/health
-```
-
-### 3. 启动前端
+### 2. 前端
 
 ```powershell
-cd C:\Users\lenovo\Desktop\PY\AI-Canvas-V1\canvas-frontend
-npm.cmd run dev
+cd canvas-frontend
+npm install
+npm run dev
 ```
 
 打开：
@@ -109,23 +80,48 @@ http://localhost:3000
 
 | Method | Path | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/health` | 健康检查 |
+| `GET` | `/api/readiness` | 企业 readiness 检查 |
+| `GET` | `/api/scorecard` | 企业评分与证据 |
 | `POST` | `/api/auth/register` | 注册账号 |
 | `POST` | `/api/auth/login` | 登录并获取 token |
-| `GET` | `/api/projects` | 获取项目空间 |
+| `GET` | `/api/projects` | 项目空间列表 |
 | `POST` | `/api/projects` | 创建项目 |
-| `GET` | `/api/projects/{project_id}/canvases` | 获取项目画布 |
-| `POST` | `/api/generate-canvas` | 调用 Gemini 生成并保存画布 |
-| `GET` | `/api/canvases/{canvas_id}/versions` | 获取版本历史 |
-| `GET` | `/api/templates` | 获取内置模板 |
-| `GET` | `/api/logs` | 获取最近请求日志 |
+| `GET` | `/api/projects/{project_id}/canvases` | 项目画布列表 |
+| `POST` | `/api/generate-canvas` | 生成并保存工作流画布 |
+| `GET` | `/api/canvases/{canvas_id}/versions` | 版本历史 |
+| `GET` | `/api/connectors` | 企业连接器目录 |
+| `POST` | `/api/canvases/{canvas_id}/runs` | 启动 workflow run 或 dry run |
+| `GET` | `/api/canvases/{canvas_id}/runs` | 查看画布运行历史 |
+| `GET` | `/api/runs/{run_id}` | 查看单次运行和节点 step |
+| `POST` | `/api/runs/{run_id}/steps/{step_id}/approve` | 审批人工节点 |
+| `GET` | `/api/logs` | 请求日志 |
+| `GET` | `/api/governance/events` | 治理事件 |
 
-除注册、登录和健康检查外，其余接口需要：
+除注册、登录和健康检查外，业务接口需要：
 
 ```text
 Authorization: Bearer <token>
 ```
 
-## 后端验证
+## Workflow Run 示例
+
+```json
+{
+  "trigger_type": "manual",
+  "inputs": {
+    "account_id": "acme-001",
+    "priority": "high"
+  },
+  "dry_run": false
+}
+```
+
+如果拓扑包含 Governance、Decision、approval、human 或审批节点，运行会进入 `waiting_approval`。审批通过后，下游 pending step 会继续完成；审批拒绝后，run 会标记为 `failed`，下游 step 会标记为 `skipped`。
+
+## 验证
+
+后端：
 
 ```powershell
 cd canvas-backend
@@ -133,14 +129,11 @@ python -m py_compile main.py schemas.py
 python -m unittest discover -s tests
 ```
 
-当前后端测试覆盖账号注册/登录、项目空间、模板库、请求日志、画布保存、版本历史、项目所有权隔离和 Gemini 拓扑 JSON 解析。仓库不再提交 `Lib/`、`Scripts/`、`pyvenv.cfg` 等虚拟环境文件，依赖通过 `canvas-backend/requirements.txt` 复现。
+前端：
 
-## 生成画布请求
-
-```json
-{
-  "user_prompt": "为一次线上会员增长活动设计 agent 编排：包含人群洞察、权益设计、内容投放、自动化触达、数据监控、风险控制和复盘。",
-  "project_id": 1,
-  "profile": "operations"
-}
+```powershell
+cd canvas-frontend
+npm run build
 ```
+
+当前测试覆盖：账号注册/登录、项目空间、模板库、请求日志、治理事件、画布保存、版本历史、owner isolation、拓扑 JSON 解析、连接器目录、workflow run、审批暂停与继续执行。

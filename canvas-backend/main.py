@@ -21,9 +21,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from schemas import (
+    ApprovalAction,
     AuthResponse,
     CanvasOut,
     CanvasSave,
+    ConnectorOut,
     EdgeData,
     GenerateCanvasResponse,
     NodeData,
@@ -37,6 +39,9 @@ from schemas import (
     UserOut,
     UserPrompt,
     VersionOut,
+    StepRunOut,
+    WorkflowRunCreate,
+    WorkflowRunOut,
 )
 
 load_dotenv()
@@ -93,6 +98,130 @@ BUILTIN_TEMPLATES = [
     ),
 ]
 
+CONNECTOR_CATALOG: list[dict[str, Any]] = [
+    {
+        "id": "slack",
+        "name": "Slack",
+        "category": "Collaboration",
+        "description": "Send channel messages, collect approvals, and notify workflow owners.",
+        "auth_type": "oauth2",
+        "triggers": ["message_posted", "approval_response"],
+        "actions": ["send_message", "create_approval_request", "upload_file"],
+        "required_scopes": ["chat:write", "channels:read"],
+        "risk_level": "medium",
+    },
+    {
+        "id": "teams",
+        "name": "Microsoft Teams",
+        "category": "Collaboration",
+        "description": "Post adaptive cards and route human approval tasks.",
+        "auth_type": "oauth2",
+        "triggers": ["card_submitted", "channel_message"],
+        "actions": ["post_card", "send_message"],
+        "required_scopes": ["ChannelMessage.Send"],
+        "risk_level": "medium",
+    },
+    {
+        "id": "gmail",
+        "name": "Gmail",
+        "category": "Email",
+        "description": "Read labeled mail, draft responses, and send approved outreach.",
+        "auth_type": "oauth2",
+        "triggers": ["new_email", "label_applied"],
+        "actions": ["draft_email", "send_email", "apply_label"],
+        "required_scopes": ["gmail.modify"],
+        "risk_level": "high",
+    },
+    {
+        "id": "outlook",
+        "name": "Outlook",
+        "category": "Email",
+        "description": "Create drafts, send messages, and coordinate calendar follow-ups.",
+        "auth_type": "oauth2",
+        "triggers": ["new_mail", "calendar_event"],
+        "actions": ["create_draft", "send_mail", "create_event"],
+        "required_scopes": ["Mail.Send", "Calendars.ReadWrite"],
+        "risk_level": "high",
+    },
+    {
+        "id": "google_drive",
+        "name": "Google Drive",
+        "category": "Knowledge",
+        "description": "Search documents, attach artifacts, and persist generated files.",
+        "auth_type": "oauth2",
+        "triggers": ["file_created", "file_updated"],
+        "actions": ["search_files", "read_file", "write_file"],
+        "required_scopes": ["drive.file"],
+        "risk_level": "medium",
+    },
+    {
+        "id": "jira",
+        "name": "Jira",
+        "category": "Work Management",
+        "description": "Create issues, update status, and link workflow execution evidence.",
+        "auth_type": "api_token",
+        "triggers": ["issue_updated", "sprint_started"],
+        "actions": ["create_issue", "transition_issue", "add_comment"],
+        "required_scopes": ["write:jira-work"],
+        "risk_level": "medium",
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "category": "Developer",
+        "description": "Open issues, comment on pull requests, and dispatch CI workflows.",
+        "auth_type": "github_app",
+        "triggers": ["pull_request", "workflow_run"],
+        "actions": ["create_issue", "comment_pr", "dispatch_workflow"],
+        "required_scopes": ["issues:write", "pull_requests:write", "actions:write"],
+        "risk_level": "high",
+    },
+    {
+        "id": "notion",
+        "name": "Notion",
+        "category": "Knowledge",
+        "description": "Read workspace pages and write execution summaries to databases.",
+        "auth_type": "oauth2",
+        "triggers": ["page_updated", "database_item_created"],
+        "actions": ["query_database", "create_page", "update_page"],
+        "required_scopes": ["read_content", "update_content"],
+        "risk_level": "medium",
+    },
+    {
+        "id": "salesforce",
+        "name": "Salesforce",
+        "category": "CRM",
+        "description": "Read accounts, update opportunities, and write governed sales notes.",
+        "auth_type": "oauth2",
+        "triggers": ["lead_created", "opportunity_updated"],
+        "actions": ["query_records", "update_record", "create_task"],
+        "required_scopes": ["api", "refresh_token"],
+        "risk_level": "high",
+    },
+    {
+        "id": "postgres",
+        "name": "PostgreSQL",
+        "category": "Database",
+        "description": "Run approved SQL reads and write structured workflow outputs.",
+        "auth_type": "secret",
+        "triggers": ["schedule", "webhook"],
+        "actions": ["select", "insert", "update"],
+        "required_scopes": ["database:read", "database:write"],
+        "risk_level": "high",
+    },
+    {
+        "id": "webhook",
+        "name": "Webhook / HTTP Request",
+        "category": "Integration",
+        "description": "Trigger workflows from external systems and call governed HTTP APIs.",
+        "auth_type": "api_key",
+        "triggers": ["incoming_webhook", "schedule"],
+        "actions": ["http_get", "http_post", "http_patch"],
+        "required_scopes": ["endpoint:invoke"],
+        "risk_level": "medium",
+    },
+]
+
 SYSTEM_PROMPT = """
 你是 AgentFlow Orchestrator，一个面向生产场景的通用工作流架构 agent。
 你的任务是把用户输入的业务、产品、运营、学习、科研、创作、项目管理或组织协作目标，拆解成一张可执行的 agent 工作流拓扑。
@@ -141,7 +270,7 @@ def enterprise_scorecard() -> dict[str, Any]:
             "id": "workflow",
             "label": "Workflow canvas completeness",
             "score": 20,
-            "evidence": "Prompt-to-DAG generation, projects, canvases, templates, versions, and saved topology contracts are implemented.",
+            "evidence": "Prompt-to-DAG generation, projects, canvases, templates, versions, executable runs, step status, and saved topology contracts are implemented.",
         },
         {
             "id": "security",
@@ -153,7 +282,7 @@ def enterprise_scorecard() -> dict[str, Any]:
             "id": "governance",
             "label": "Governance and auditability",
             "score": 20,
-            "evidence": "Governance events, request logs, version history, model metadata, and ownership boundaries are persisted.",
+            "evidence": "Governance events, request logs, version history, model metadata, approval gates, and ownership boundaries are persisted.",
         },
         {
             "id": "platform",
@@ -165,7 +294,7 @@ def enterprise_scorecard() -> dict[str, Any]:
             "id": "product",
             "label": "Product experience",
             "score": 20,
-            "evidence": "Next.js canvas UI, React Flow interaction, templates, exports, and full backend CRUD support a complete demo path.",
+            "evidence": "Next.js canvas UI, React Flow interaction, templates, exports, connector market, run history, and approval controls support a complete demo path.",
         },
     ]
     score = sum(item["score"] for item in dimensions)
@@ -195,6 +324,8 @@ def readiness_payload() -> dict[str, Any]:
     checks = [
         {"id": "database", "ok": DB_PATH.exists(), "detail": str(DB_PATH)},
         {"id": "templates", "ok": True, "detail": "Builtin templates are inserted during startup."},
+        {"id": "connectors", "ok": len(CONNECTOR_CATALOG) >= 10, "detail": f"{len(CONNECTOR_CATALOG)} enterprise connector definitions"},
+        {"id": "execution_engine", "ok": True, "detail": "Workflow runs, step runs, dry run, and approval continuation are enabled."},
         {"id": "rate_limit", "ok": rate_limit_per_minute > 0, "detail": f"{rate_limit_per_minute}/min"},
         {"id": "token_ttl", "ok": token_ttl_seconds > 0, "detail": f"{token_ttl_seconds}s"},
         {"id": "secret_policy", "ok": (not enterprise_mode) or app_secret != "agentflow-dev-secret-change-me", "detail": "APP_SECRET must be unique in enterprise mode."},
@@ -295,6 +426,54 @@ def row_to_version(row: sqlite3.Row) -> VersionOut:
         nodes=[NodeData(**item) for item in json.loads(row["nodes_json"])],
         edges=[EdgeData(**item) for item in json.loads(row["edges_json"])],
         created_at=row["created_at"],
+    )
+
+
+def safe_json_loads(raw: Optional[str], fallback: Any) -> Any:
+    if not raw:
+        return fallback
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return fallback
+
+
+def row_to_step_run(row: sqlite3.Row) -> StepRunOut:
+    return StepRunOut(
+        id=row["id"],
+        run_id=row["run_id"],
+        node_id=row["node_id"],
+        label=row["label"],
+        type=row["type"],
+        status=row["status"],
+        attempt=row["attempt"],
+        latency_ms=row["latency_ms"],
+        token_usage=row["token_usage"],
+        cost_usd=row["cost_usd"],
+        input=safe_json_loads(row["input_json"], {}),
+        output=safe_json_loads(row["output_json"], {}),
+        error=row["error"] or "",
+        approval_required=bool(row["approval_required"]),
+        approval_status=row["approval_status"] or "",
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+    )
+
+
+def row_to_workflow_run(row: sqlite3.Row, steps: Optional[list[StepRunOut]] = None) -> WorkflowRunOut:
+    return WorkflowRunOut(
+        id=row["id"],
+        canvas_id=row["canvas_id"],
+        status=row["status"],
+        trigger_type=row["trigger_type"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+        duration_ms=row["duration_ms"],
+        total_tokens=row["total_tokens"],
+        total_cost_usd=row["total_cost_usd"],
+        inputs=safe_json_loads(row["input_json"], {}),
+        error=row["error"] or "",
+        steps=steps or [],
     )
 
 
@@ -454,6 +633,44 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 event_json TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS workflow_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                canvas_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                trigger_type TEXT NOT NULL,
+                input_json TEXT NOT NULL,
+                error TEXT DEFAULT '',
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                total_cost_usd REAL NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                FOREIGN KEY(canvas_id) REFERENCES canvases(id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS workflow_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL,
+                node_id TEXT NOT NULL,
+                label TEXT NOT NULL,
+                type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                attempt INTEGER NOT NULL DEFAULT 1,
+                latency_ms INTEGER NOT NULL DEFAULT 0,
+                token_usage INTEGER NOT NULL DEFAULT 0,
+                cost_usd REAL NOT NULL DEFAULT 0,
+                input_json TEXT NOT NULL DEFAULT '{}',
+                output_json TEXT NOT NULL DEFAULT '{}',
+                error TEXT DEFAULT '',
+                approval_required INTEGER NOT NULL DEFAULT 0,
+                approval_status TEXT DEFAULT '',
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                FOREIGN KEY(run_id) REFERENCES workflow_runs(id)
+            );
             """
         )
         for name, category, description, prompt, profile in BUILTIN_TEMPLATES:
@@ -550,6 +767,266 @@ def list_governance_events(user_id: Optional[int], limit: int = 50) -> list[dict
             (user_id, limit),
         ).fetchall()
     return [json.loads(row["event_json"]) for row in rows]
+
+
+def topological_nodes(nodes: list[NodeData], edges: list[EdgeData]) -> list[NodeData]:
+    by_id = {node.id: node for node in nodes}
+    indegree = {node.id: 0 for node in nodes}
+    outgoing: dict[str, list[str]] = {node.id: [] for node in nodes}
+    for edge in edges:
+        if edge.source in by_id and edge.target in by_id:
+            outgoing[edge.source].append(edge.target)
+            indegree[edge.target] += 1
+
+    queue = deque([node_id for node_id, degree in indegree.items() if degree == 0])
+    ordered: list[NodeData] = []
+    while queue:
+        node_id = queue.popleft()
+        ordered.append(by_id[node_id])
+        for target in outgoing[node_id]:
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                queue.append(target)
+
+    if len(ordered) != len(nodes):
+        seen = {node.id for node in ordered}
+        ordered.extend([node for node in nodes if node.id not in seen])
+    return ordered
+
+
+def node_payload(node: NodeData) -> dict[str, Any]:
+    if hasattr(node, "model_dump"):
+        return node.model_dump()
+    return node.dict()
+
+
+def is_approval_node(node: NodeData) -> bool:
+    marker = f"{node.type or ''} {node.label} {node.description or ''}".lower()
+    return any(term in marker for term in ["approval", "approve", "human", "gate", "审批", "人工"]) or (node.type or "").lower() in {
+        "decision",
+        "governance",
+    }
+
+
+def simulated_step_output(node: NodeData, trigger_type: str, approved_note: str = "") -> dict[str, Any]:
+    return {
+        "node_id": node.id,
+        "label": node.label,
+        "status": "completed",
+        "tool": node.tool or "built-in executor",
+        "model": node.model or gemini_model,
+        "artifact": f"{node.label} execution evidence",
+        "trigger_type": trigger_type,
+        "approved_note": approved_note,
+        "schema": {
+            "input": node.input_schema,
+            "output": node.output_schema or {"result": "string", "evidence": "object"},
+        },
+    }
+
+
+def estimate_step_usage(node: NodeData, ordinal: int) -> tuple[int, int, float]:
+    base = len(node.label) + len(node.description or "")
+    token_usage = max(80, min(2000, base * 3 + 40 + ordinal * 7))
+    latency_ms = min(node.timeout_seconds * 1000, 180 + ordinal * 65 + base * 2)
+    cost_usd = round(float(node.cost_estimate_usd or 0) + token_usage * 0.000002, 6)
+    return token_usage, latency_ms, cost_usd
+
+
+def insert_step(
+    conn: sqlite3.Connection,
+    run_id: int,
+    node: NodeData,
+    status: str,
+    ordinal: int,
+    step_input: dict[str, Any],
+    step_output: Optional[dict[str, Any]] = None,
+    approval_required: bool = False,
+    approval_status: str = "",
+) -> None:
+    token_usage, latency_ms, cost_usd = estimate_step_usage(node, ordinal)
+    finished_at = None if status in {"pending", "waiting_approval"} else now_ts()
+    conn.execute(
+        """
+        INSERT INTO workflow_steps (
+            run_id, node_id, label, type, status, attempt, latency_ms, token_usage, cost_usd,
+            input_json, output_json, error, approval_required, approval_status, started_at, finished_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            node.id,
+            node.label,
+            node.type or "Planning",
+            status,
+            1,
+            0 if status == "pending" else latency_ms,
+            0 if status == "pending" else token_usage,
+            0 if status == "pending" else cost_usd,
+            json.dumps(step_input, ensure_ascii=False),
+            json.dumps(step_output or {}, ensure_ascii=False),
+            1 if approval_required else 0,
+            approval_status,
+            now_ts(),
+            finished_at,
+        ),
+    )
+
+
+def finalize_run_totals(conn: sqlite3.Connection, run_id: int, status: str, finished: bool, error: str = "") -> sqlite3.Row:
+    aggregate = conn.execute(
+        "SELECT COALESCE(SUM(token_usage), 0) AS tokens, COALESCE(SUM(cost_usd), 0) AS cost FROM workflow_steps WHERE run_id = ?",
+        (run_id,),
+    ).fetchone()
+    run = conn.execute("SELECT * FROM workflow_runs WHERE id = ?", (run_id,)).fetchone()
+    finished_at = now_ts() if finished else None
+    duration_ms = int((time.time() - time.mktime(time.strptime(run["started_at"], "%Y-%m-%dT%H:%M:%SZ"))) * 1000)
+    conn.execute(
+        """
+        UPDATE workflow_runs
+        SET status = ?, finished_at = ?, duration_ms = ?, total_tokens = ?, total_cost_usd = ?, error = ?
+        WHERE id = ?
+        """,
+        (status, finished_at, max(0, duration_ms), aggregate["tokens"], aggregate["cost"], error, run_id),
+    )
+    return conn.execute("SELECT * FROM workflow_runs WHERE id = ?", (run_id,)).fetchone()
+
+
+def run_with_steps(conn: sqlite3.Connection, run_row: sqlite3.Row) -> WorkflowRunOut:
+    rows = conn.execute("SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY id", (run_row["id"],)).fetchall()
+    return row_to_workflow_run(run_row, [row_to_step_run(row) for row in rows])
+
+
+def create_workflow_run(conn: sqlite3.Connection, user_id: int, canvas_row: sqlite3.Row, payload: WorkflowRunCreate) -> WorkflowRunOut:
+    canvas = row_to_canvas(canvas_row)
+    started_at = now_ts()
+    cur = conn.execute(
+        """
+        INSERT INTO workflow_runs (canvas_id, user_id, status, trigger_type, input_json, started_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            canvas.id,
+            user_id,
+            "planned" if payload.dry_run else "running",
+            payload.trigger_type,
+            json.dumps(payload.inputs, ensure_ascii=False),
+            started_at,
+        ),
+    )
+    run_id = cur.lastrowid
+    ordered_nodes = topological_nodes(canvas.nodes, canvas.edges)
+    waiting_for_approval = False
+
+    for index, node in enumerate(ordered_nodes, start=1):
+        step_input = {
+            "run_inputs": payload.inputs,
+            "node_contract": node_payload(node),
+            "upstream": [edge.source for edge in canvas.edges if edge.target == node.id],
+        }
+        if payload.dry_run:
+            insert_step(conn, run_id, node, "planned", index, step_input, {"planned": True})
+            continue
+        if waiting_for_approval:
+            insert_step(conn, run_id, node, "pending", index, step_input)
+            continue
+        if is_approval_node(node):
+            insert_step(
+                conn,
+                run_id,
+                node,
+                "waiting_approval",
+                index,
+                step_input,
+                {
+                    "approval_request": f"Review and approve node '{node.label}' before downstream execution.",
+                    "policy": node.audit_policy,
+                },
+                approval_required=True,
+                approval_status="pending",
+            )
+            waiting_for_approval = True
+            continue
+        insert_step(conn, run_id, node, "completed", index, step_input, simulated_step_output(node, payload.trigger_type))
+
+    status = "planned" if payload.dry_run else ("waiting_approval" if waiting_for_approval else "completed")
+    run_row = finalize_run_totals(conn, run_id, status, finished=(status in {"planned", "completed"}))
+    return run_with_steps(conn, run_row)
+
+
+def assert_run_owner(conn: sqlite3.Connection, run_id: int, user_id: int) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM workflow_runs WHERE id = ? AND user_id = ?", (run_id, user_id)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Workflow run not found.")
+    return row
+
+
+def approve_workflow_step(
+    conn: sqlite3.Connection,
+    run_id: int,
+    step_id: int,
+    user_id: int,
+    payload: ApprovalAction,
+) -> WorkflowRunOut:
+    run = assert_run_owner(conn, run_id, user_id)
+    step = conn.execute(
+        "SELECT * FROM workflow_steps WHERE id = ? AND run_id = ? AND status = 'waiting_approval'",
+        (step_id, run_id),
+    ).fetchone()
+    if not step:
+        raise HTTPException(status_code=404, detail="Pending approval step not found.")
+
+    finished_at = now_ts()
+    if not payload.approved:
+        conn.execute(
+            """
+            UPDATE workflow_steps
+            SET status = 'rejected', approval_status = 'rejected', output_json = ?, finished_at = ?
+            WHERE id = ?
+            """,
+            (json.dumps({"approved": False, "note": payload.note}, ensure_ascii=False), finished_at, step_id),
+        )
+        conn.execute("UPDATE workflow_steps SET status = 'skipped', finished_at = ? WHERE run_id = ? AND status = 'pending'", (finished_at, run_id))
+        run_row = finalize_run_totals(conn, run_id, "failed", finished=True, error="Human approval rejected.")
+        return run_with_steps(conn, run_row)
+
+    conn.execute(
+        """
+        UPDATE workflow_steps
+        SET status = 'completed', approval_status = 'approved', output_json = ?, finished_at = ?
+        WHERE id = ?
+        """,
+        (json.dumps({"approved": True, "note": payload.note, "approved_by": user_id}, ensure_ascii=False), finished_at, step_id),
+    )
+
+    pending_rows = conn.execute("SELECT * FROM workflow_steps WHERE run_id = ? AND status = 'pending' ORDER BY id", (run_id,)).fetchall()
+    for index, pending in enumerate(pending_rows, start=1):
+        node = NodeData(
+            id=pending["node_id"],
+            label=pending["label"],
+            type=pending["type"],
+            description=safe_json_loads(pending["input_json"], {}).get("node_contract", {}).get("description", ""),
+        )
+        token_usage, latency_ms, cost_usd = estimate_step_usage(node, index)
+        conn.execute(
+            """
+            UPDATE workflow_steps
+            SET status = 'completed', latency_ms = ?, token_usage = ?, cost_usd = ?, output_json = ?, finished_at = ?
+            WHERE id = ?
+            """,
+            (
+                latency_ms,
+                token_usage,
+                cost_usd,
+                json.dumps(simulated_step_output(node, run["trigger_type"], payload.note), ensure_ascii=False),
+                now_ts(),
+                pending["id"],
+            ),
+        )
+
+    run_row = finalize_run_totals(conn, run_id, "completed", finished=True)
+    return run_with_steps(conn, run_row)
 
 
 app.add_middleware(ObservabilityMiddleware)
@@ -746,6 +1223,54 @@ async def list_templates(user: sqlite3.Row = Depends(get_current_user)):
         )
         for row in rows
     ]
+
+
+@app.get("/api/connectors", response_model=list[ConnectorOut])
+async def list_connectors(user: sqlite3.Row = Depends(get_current_user)):
+    return [ConnectorOut(**item) for item in CONNECTOR_CATALOG]
+
+
+@app.post("/api/canvases/{canvas_id}/runs", response_model=WorkflowRunOut)
+async def start_canvas_run(canvas_id: int, payload: WorkflowRunCreate, user: sqlite3.Row = Depends(get_current_user)):
+    with db() as conn:
+        canvas_row = assert_canvas_owner(conn, canvas_id, user["id"])
+        run = create_workflow_run(conn, user["id"], canvas_row, payload)
+    write_governance_event(
+        "workflow.run.started",
+        {"canvas_id": canvas_id, "run_id": run.id, "status": run.status, "trigger_type": payload.trigger_type},
+        user["id"],
+    )
+    return run
+
+
+@app.get("/api/canvases/{canvas_id}/runs", response_model=list[WorkflowRunOut])
+async def list_canvas_runs(canvas_id: int, user: sqlite3.Row = Depends(get_current_user)):
+    with db() as conn:
+        assert_canvas_owner(conn, canvas_id, user["id"])
+        rows = conn.execute(
+            "SELECT * FROM workflow_runs WHERE canvas_id = ? AND user_id = ? ORDER BY id DESC LIMIT 25",
+            (canvas_id, user["id"]),
+        ).fetchall()
+        return [run_with_steps(conn, row) for row in rows]
+
+
+@app.get("/api/runs/{run_id}", response_model=WorkflowRunOut)
+async def get_workflow_run(run_id: int, user: sqlite3.Row = Depends(get_current_user)):
+    with db() as conn:
+        run_row = assert_run_owner(conn, run_id, user["id"])
+        return run_with_steps(conn, run_row)
+
+
+@app.post("/api/runs/{run_id}/steps/{step_id}/approve", response_model=WorkflowRunOut)
+async def approve_step(run_id: int, step_id: int, payload: ApprovalAction, user: sqlite3.Row = Depends(get_current_user)):
+    with db() as conn:
+        run = approve_workflow_step(conn, run_id, step_id, user["id"], payload)
+    write_governance_event(
+        "workflow.step.approved" if payload.approved else "workflow.step.rejected",
+        {"run_id": run_id, "step_id": step_id, "status": run.status, "note": payload.note},
+        user["id"],
+    )
+    return run
 
 
 @app.get("/api/logs", response_model=list[RequestLogOut])

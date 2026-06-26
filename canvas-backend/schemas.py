@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,15 @@ class NodeData(BaseModel):
     label: str
     type: Optional[str] = "Planning"
     description: Optional[str] = ""
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
+    permissions: List[str] = Field(default_factory=list)
+    tool: Optional[str] = ""
+    model: Optional[str] = ""
+    cost_estimate_usd: float = 0.0
+    timeout_seconds: int = Field(default=120, ge=1, le=3600)
+    retry_policy: dict[str, Any] = Field(default_factory=lambda: {"max_retries": 2, "backoff_seconds": 2})
+    audit_policy: str = "standard"
 
 
 class EdgeData(BaseModel):
@@ -118,3 +127,61 @@ class RequestLogOut(BaseModel):
     duration_ms: int
     error: str
     created_at: str
+
+
+class ConnectorOut(BaseModel):
+    id: str
+    name: str
+    category: str
+    description: str
+    auth_type: str
+    triggers: List[str]
+    actions: List[str]
+    required_scopes: List[str]
+    risk_level: str
+
+
+class WorkflowRunCreate(BaseModel):
+    trigger_type: str = Field(default="manual", max_length=40)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    dry_run: bool = False
+
+
+class StepRunOut(BaseModel):
+    id: int
+    run_id: int
+    node_id: str
+    label: str
+    type: str
+    status: str
+    attempt: int
+    latency_ms: int
+    token_usage: int
+    cost_usd: float
+    input: dict[str, Any]
+    output: dict[str, Any]
+    error: str
+    approval_required: bool
+    approval_status: str
+    started_at: str
+    finished_at: Optional[str] = None
+
+
+class WorkflowRunOut(BaseModel):
+    id: int
+    canvas_id: int
+    status: str
+    trigger_type: str
+    started_at: str
+    finished_at: Optional[str] = None
+    duration_ms: int
+    total_tokens: int
+    total_cost_usd: float
+    inputs: dict[str, Any]
+    error: str
+    steps: List[StepRunOut] = Field(default_factory=list)
+
+
+class ApprovalAction(BaseModel):
+    approved: bool = True
+    note: str = Field(default="", max_length=500)

@@ -104,6 +104,84 @@ class IsolatedBackendTest(unittest.TestCase):
         forbidden = self.client.get(f"/api/canvases/{canvas_id}", headers=other_headers)
         self.assertEqual(forbidden.status_code, 404)
 
+    def test_connector_catalog_and_workflow_run_with_approval(self):
+        _, headers = self._register()
+        project_id = self.client.get("/api/projects", headers=headers).json()[0]["id"]
+        canvas_payload = {
+            "project_id": project_id,
+            "title": "Revenue Ops Agent",
+            "prompt": "Run a governed revenue workflow",
+            "summary": "Qualify an account, request approval, then write back to CRM.",
+            "nodes": [
+                {
+                    "id": "input",
+                    "label": "Collect account context",
+                    "type": "Input",
+                    "description": "Gather account inputs and target segment.",
+                    "output_schema": {"account": "object"},
+                },
+                {
+                    "id": "approval",
+                    "label": "Human approval gate",
+                    "type": "Governance",
+                    "description": "Require a manager approval before CRM writeback.",
+                    "permissions": ["crm.write"],
+                    "audit_policy": "strict",
+                },
+                {
+                    "id": "crm",
+                    "label": "Update Salesforce opportunity",
+                    "type": "Execution",
+                    "description": "Write approved next steps to Salesforce.",
+                    "tool": "salesforce",
+                    "permissions": ["salesforce.update"],
+                    "timeout_seconds": 60,
+                },
+            ],
+            "edges": [
+                {"source": "input", "target": "approval", "label": "approval input"},
+                {"source": "approval", "target": "crm", "label": "approved action"},
+            ],
+        }
+        saved = self.client.post("/api/canvases", json=canvas_payload, headers=headers)
+        self.assertEqual(saved.status_code, 200)
+        canvas_id = saved.json()["id"]
+
+        connectors = self.client.get("/api/connectors", headers=headers)
+        self.assertEqual(connectors.status_code, 200)
+        connector_ids = {item["id"] for item in connectors.json()}
+        self.assertIn("salesforce", connector_ids)
+        self.assertIn("webhook", connector_ids)
+
+        run_response = self.client.post(
+            f"/api/canvases/{canvas_id}/runs",
+            json={"trigger_type": "manual", "inputs": {"account_id": "acme-001"}},
+            headers=headers,
+        )
+        self.assertEqual(run_response.status_code, 200)
+        run = run_response.json()
+        self.assertEqual(run["status"], "waiting_approval")
+        self.assertEqual(len(run["steps"]), 3)
+        waiting_step = next(step for step in run["steps"] if step["status"] == "waiting_approval")
+        pending_step = next(step for step in run["steps"] if step["node_id"] == "crm")
+        self.assertTrue(waiting_step["approval_required"])
+        self.assertEqual(pending_step["status"], "pending")
+
+        approved = self.client.post(
+            f"/api/runs/{run['id']}/steps/{waiting_step['id']}/approve",
+            json={"approved": True, "note": "Approved by test"},
+            headers=headers,
+        )
+        self.assertEqual(approved.status_code, 200)
+        approved_run = approved.json()
+        self.assertEqual(approved_run["status"], "completed")
+        self.assertTrue(all(step["status"] == "completed" for step in approved_run["steps"]))
+        self.assertGreater(approved_run["total_tokens"], 0)
+
+        history = self.client.get(f"/api/canvases/{canvas_id}/runs", headers=headers)
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()[0]["id"], run["id"])
+
 
 class TopologyParsingTest(unittest.TestCase):
     def test_parse_topology_response_accepts_fenced_json(self):
