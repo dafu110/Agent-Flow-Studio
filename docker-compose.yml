@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./canvas-backend
+    env_file:
+      - ./canvas-backend/.env
+    environment:
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      APP_SECRET: ${APP_SECRET:-agentflow-dev-secret-change-me}
+      TOKEN_TTL_SECONDS: ${TOKEN_TTL_SECONDS:-604800}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-90}
+      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-3}
+      ENTERPRISE_MODE: ${ENTERPRISE_MODE:-false}
+      TARGET_ENTERPRISE_SCORE: ${TARGET_ENTERPRISE_SCORE:-96}
+      CONNECTOR_EXECUTION_ENABLED: ${CONNECTOR_EXECUTION_ENABLED:-false}
+    ports:
+      - "8000:8000"
+    volumes:
+      - agentflow_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./canvas-frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  agentflow_data:
