@@ -227,6 +227,19 @@ const statusClass = (status: string) => {
   return 'border-cyan-200 bg-cyan-50 text-cyan-700';
 };
 
+const formatStatusLabel = (value: string) =>
+  value
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const kpiTone = (index: number) =>
+  [
+    'from-cyan-50 to-white border-cyan-100 text-cyan-700',
+    'from-slate-50 to-white border-slate-200 text-slate-700',
+    'from-emerald-50 to-white border-emerald-100 text-emerald-700',
+    'from-violet-50 to-white border-violet-100 text-violet-700',
+  ][index % 4];
+
 const createNodes = (items: CanvasNode[]): AgentNode[] =>
   items.map((node, index) => {
     const col = index % 3;
@@ -635,91 +648,147 @@ export default function CanvasPage() {
 
   if (!user) {
     return (
-      <main className="flex h-dvh items-center justify-center bg-[#f6f8fb] px-4 text-slate-900">
-        <div className="w-full max-w-md rounded-[8px] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[8px] border border-cyan-100 bg-cyan-50 text-cyan-700"><Sparkles className="h-5 w-5" /></div>
-            <div><h1 className="text-lg font-black">AgentFlow Studio</h1><p className="text-xs font-semibold text-slate-500">Enterprise workflow control plane</p></div>
+      <main className="relative flex h-dvh items-center justify-center overflow-hidden bg-[#f6f8fb] px-4 text-slate-900">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fafc_0%,#edf8fb_48%,#f8fafc_100%)]" />
+        <div className="absolute inset-0 opacity-45 [background-image:radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:28px_28px]" />
+        <div className="relative w-full max-w-[1160px] overflow-hidden rounded-[24px] border border-white/80 bg-white/85 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+          <div className="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
+            <div className="flex flex-col justify-between border-b border-slate-100 px-8 py-8 md:border-b-0 md:border-r md:px-10 md:py-10">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-700">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AgentFlow Studio
+                </div>
+                <h1 className="mt-5 max-w-xl text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Enterprise AI workflow orchestration, built for real operations.</h1>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-slate-500 md:text-[15px]">Generate DAGs, run workflows, approve human gates, observe execution, and export delivery-ready artifacts from one workspace.</p>
+                <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                  {[
+                    ['Runs', 'queue + approvals'],
+                    ['Connectors', 'catalog + audit'],
+                    ['Exports', 'PNG + PDF'],
+                  ].map(([title, desc]) => (
+                    <div key={title} className="rounded-[18px] border border-slate-200 bg-white/90 p-4">
+                      <div className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{title}</div>
+                      <div className="mt-2 text-sm font-semibold text-slate-900">{desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-8 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1">FastAPI</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1">React Flow</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1">Gemini</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1">Docker Compose</span>
+              </div>
+            </div>
+
+            <div className="px-8 py-8 md:px-10 md:py-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-cyan-100 bg-cyan-50 text-cyan-700"><LockKeyhole className="h-5 w-5" /></div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-950">Sign in</h2>
+                  <p className="text-xs font-semibold text-slate-500">Use the workspace to create and run workflows.</p>
+                </div>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-1 rounded-[16px] bg-slate-100 p-1 text-sm font-black">
+                <button onClick={() => setAuthMode('login')} className={`rounded-[12px] py-2.5 ${authMode === 'login' ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>Login</button>
+                <button onClick={() => setAuthMode('register')} className={`rounded-[12px] py-2.5 ${authMode === 'register' ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>Register</button>
+              </div>
+              <div className="mt-4 space-y-3">
+                <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                <button onClick={handleAuth} disabled={loading} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-slate-950 text-sm font-black text-white transition hover:bg-cyan-700 disabled:bg-slate-300">
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+                  {authMode === 'login' ? 'Enter workspace' : 'Create account'}
+                </button>
+              </div>
+              {error && <p className="mt-3 rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{error}</p>}
+            </div>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-1 rounded-[8px] bg-slate-100 p-1 text-sm font-black">
-            <button onClick={() => setAuthMode('login')} className={`rounded-md py-2 ${authMode === 'login' ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>Login</button>
-            <button onClick={() => setAuthMode('register')} className={`rounded-md py-2 ${authMode === 'register' ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>Register</button>
-          </div>
-          <div className="mt-4 space-y-3">
-            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="h-11 w-full rounded-[8px] border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
-            <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" className="h-11 w-full rounded-[8px] border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
-            <button onClick={handleAuth} disabled={loading} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-slate-950 text-sm font-black text-white transition hover:bg-cyan-700 disabled:bg-slate-300">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
-              {authMode === 'login' ? 'Enter workspace' : 'Create account'}
-            </button>
-          </div>
-          {error && <p className="mt-3 rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{error}</p>}
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-dvh w-screen flex-col overflow-hidden bg-[#f6f8fb] text-slate-900 antialiased md:flex-row">
-      <aside className="z-20 flex h-[62dvh] shrink-0 flex-col border-b border-slate-200/80 bg-white/95 shadow-[0_18px_44px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:h-full md:w-[430px] md:border-b-0 md:border-r">
+    <main className="relative flex h-dvh w-screen flex-col overflow-hidden bg-[#f6f8fb] text-slate-900 antialiased md:flex-row">
+      <aside className="z-20 flex h-[62dvh] shrink-0 flex-col border-b border-slate-200/80 bg-white/92 shadow-[0_18px_44px_rgba(15,23,42,0.08)] backdrop-blur-2xl md:h-full md:w-[430px] md:border-b-0 md:border-r">
         <div className="border-b border-slate-100 px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-cyan-100 bg-cyan-50 text-cyan-600 shadow-sm"><Sparkles className="h-5 w-5" /></div>
-              <div className="min-w-0"><h1 className="truncate text-base font-black tracking-wide text-slate-950">AgentFlow Studio</h1><p className="truncate text-xs font-semibold text-slate-500">{user.email}</p></div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-cyan-100 bg-cyan-50 text-cyan-600 shadow-sm"><Sparkles className="h-5 w-5" /></div>
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-black tracking-wide text-slate-950">AgentFlow Studio</h1>
+                <p className="truncate text-xs font-semibold text-slate-500">{user.email}</p>
+              </div>
             </div>
             <button onClick={handleLogout} className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-rose-600" aria-label="Log out"><LogOut className="h-4 w-4" /></button>
           </div>
         </div>
 
         <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: 'Projects', value: projects.length, icon: <Boxes className="h-4 w-4" /> },
-              { label: 'Canvases', value: canvases.length, icon: <Route className="h-4 w-4" /> },
-              { label: 'Runs', value: runs.length, icon: <Play className="h-4 w-4" /> },
-              { label: 'Connectors', value: connectors.length, icon: <DatabaseZap className="h-4 w-4" /> },
-            ].map((metric) => (
-              <div key={metric.label} className="rounded-[8px] border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 text-slate-400">{metric.icon}</div>
-                <div className="font-mono text-lg font-black text-slate-950">{metric.value}</div>
-                <div className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{metric.label}</div>
+          <section className="rounded-[18px] border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Workspace</div>
+                <div className="mt-1 text-lg font-black text-slate-950">{projects.length} projects</div>
+                <div className="text-xs font-semibold text-slate-500">{canvases.length} canvases, {runs.length} runs</div>
               </div>
-            ))}
-          </div>
-
-          <section className="mt-4 rounded-[8px] border border-slate-200 bg-white p-3">
-            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Projects</div>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="New project" className="h-9 rounded-md border border-slate-200 px-3 text-xs font-semibold outline-none focus:border-cyan-400" />
-              <button onClick={createProject} className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-950 text-white" aria-label="Create project"><Plus className="h-4 w-4" /></button>
+              <div className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-700">Connected</div>
             </div>
-            <div className="mt-3 grid gap-2">
-              {projects.map((project) => (
-                <button key={project.id} onClick={() => selectProject(project.id)} className={`rounded-md border px-3 py-2 text-left text-xs font-bold transition ${projectId === project.id ? 'border-cyan-200 bg-cyan-50 text-cyan-800' : 'border-slate-200 text-slate-600 hover:border-cyan-200'}`}>{project.name}</button>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {[
+                { label: 'Projects', value: projects.length, icon: <Boxes className="h-4 w-4" /> },
+                { label: 'Canvases', value: canvases.length, icon: <Route className="h-4 w-4" /> },
+                { label: 'Runs', value: runs.length, icon: <Play className="h-4 w-4" /> },
+                { label: 'Connectors', value: connectors.length, icon: <DatabaseZap className="h-4 w-4" /> },
+              ].map((metric, index) => (
+                <div key={metric.label} className={`rounded-[16px] border bg-gradient-to-br p-3 shadow-sm ${kpiTone(index)}`}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-slate-400">{metric.icon}</div>
+                    <div className="font-mono text-xl font-black text-slate-950">{metric.value}</div>
+                  </div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">{metric.label}</div>
+                </div>
               ))}
             </div>
           </section>
 
-          <section className="mt-4">
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Projects</div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Workspace</span>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="New project" className="h-10 rounded-[12px] border border-slate-200 px-3 text-xs font-semibold outline-none focus:border-cyan-400" />
+              <button onClick={createProject} className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-slate-950 text-white" aria-label="Create project"><Plus className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {projects.map((project) => (
+                <button key={project.id} onClick={() => selectProject(project.id)} className={`rounded-[14px] border px-3 py-2.5 text-left text-xs font-bold transition ${projectId === project.id ? 'border-cyan-200 bg-cyan-50 text-cyan-800' : 'border-slate-200 text-slate-600 hover:border-cyan-200 hover:bg-slate-50'}`}>{project.name}</button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
             <div className="mb-2 flex items-center justify-between">
               <label htmlFor="prompt" className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Prompt</label>
-              <select value={profile} onChange={(event) => setProfile(event.target.value)} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600">
+              <select value={profile} onChange={(event) => setProfile(event.target.value)} className="h-8 rounded-[10px] border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600">
                 {profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
               </select>
             </div>
-            <textarea id="prompt" className="h-28 w-full resize-none rounded-[8px] border border-slate-200 bg-white p-3 text-sm font-semibold leading-relaxed text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" placeholder="Describe the workflow goal..." value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-            <button type="button" onClick={generateCanvas} disabled={loading || !prompt.trim() || !projectId} className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
+            <textarea id="prompt" className="h-28 w-full resize-none rounded-[14px] border border-slate-200 bg-white p-3 text-sm font-semibold leading-relaxed text-slate-700 outline-none transition placeholder:text-slate-300 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" placeholder="Describe the workflow goal..." value={prompt} onChange={(event) => setPrompt(event.target.value)} />
+            <button type="button" onClick={generateCanvas} disabled={loading || !prompt.trim() || !projectId} className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-slate-950 px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(15,23,42,0.2)] transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
               Generate and Save
             </button>
           </section>
 
-          <section className="mt-4 rounded-[8px] border border-slate-200 bg-white p-3">
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
             <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Templates</div>
             <div className="grid gap-2">
               {templates.map((template) => (
-                <button key={template.id} onClick={() => applyTemplate(template)} className="rounded-md border border-slate-200 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50">
+                <button key={template.id} onClick={() => applyTemplate(template)} className="rounded-[14px] border border-slate-200 p-3 text-left transition hover:border-cyan-200 hover:bg-cyan-50">
                   <div className="text-xs font-black text-slate-900">{template.name}</div>
                   <div className="mt-1 text-[11px] font-semibold text-slate-500">{template.category} / {template.description}</div>
                 </button>
@@ -727,11 +796,11 @@ export default function CanvasPage() {
             </div>
           </section>
 
-          <section className="mt-4 rounded-[8px] border border-slate-200 bg-white p-3">
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
             <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Canvases</div>
             <div className="grid gap-2">
               {canvases.map((canvas) => (
-                <button key={canvas.id} onClick={() => openCanvas(canvas)} className={`rounded-md border p-3 text-left transition ${activeCanvas?.id === canvas.id ? 'border-cyan-200 bg-cyan-50' : 'border-slate-200 hover:border-cyan-200'}`}>
+                <button key={canvas.id} onClick={() => openCanvas(canvas)} className={`rounded-[14px] border p-3 text-left transition ${activeCanvas?.id === canvas.id ? 'border-cyan-200 bg-cyan-50' : 'border-slate-200 hover:border-cyan-200 hover:bg-slate-50'}`}>
                   <div className="text-xs font-black text-slate-900">{canvas.title}</div>
                   <div className="mt-1 text-[11px] font-semibold text-slate-500">{canvas.updated_at}</div>
                 </button>
@@ -739,14 +808,17 @@ export default function CanvasPage() {
             </div>
           </section>
 
-          <section className="mt-4 rounded-[8px] border border-slate-200 bg-white p-3">
-            <div className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Connectors</div>
+          <section className="mt-4 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Connectors</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">Catalog</div>
+            </div>
             <div className="grid max-h-64 gap-2 overflow-y-auto pr-1">
               {connectors.map((connector) => (
-                <div key={connector.id} className="rounded-md border border-slate-200 p-3">
+                <div key={connector.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-xs font-black text-slate-900">{connector.name}</div>
-                    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-black uppercase ${connector.risk_level === 'high' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}>{connector.risk_level}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${connector.risk_level === 'high' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 bg-white text-slate-500'}`}>{connector.risk_level}</span>
                   </div>
                   <div className="mt-1 text-[11px] font-semibold text-slate-500">{connector.category} / {connector.auth_type}</div>
                 </div>
@@ -767,36 +839,70 @@ export default function CanvasPage() {
         <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fafc_0%,#eef7f9_48%,#f8fafc_100%)]" />
         <div className="absolute inset-0 opacity-45 [background-image:radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:28px_28px]" />
 
+        <div className="absolute left-4 right-4 top-4 z-10 rounded-[20px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-700">
+                  <Layers3 className="h-3.5 w-3.5" />
+                  Workspace
+                </span>
+                {activeCanvas ? <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{activeCanvas.title}</span> : null}
+                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{user.email}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <h2 className="text-lg font-black text-slate-950">{activeCanvas?.title || 'Canvas workspace'}</h2>
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${latestRun ? statusClass(latestRun.status) : 'border-slate-200 bg-slate-50 text-slate-500'}`}>{latestRun ? latestRun.status : 'idle'}</span>
+              </div>
+              <p className="mt-1 max-w-3xl text-sm text-slate-500">{activeCanvas?.summary || summary}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => runCanvas(false)} disabled={!activeCanvas || loading} className="inline-flex items-center gap-1 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"><Play className="h-3.5 w-3.5" /> Run</button>
+              <button onClick={() => runCanvas(true)} disabled={!activeCanvas || loading} className="inline-flex items-center gap-1 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400"><Clock3 className="h-3.5 w-3.5" /> Dry Run</button>
+              {waitingStep && <button onClick={() => approveWaitingStep(true)} disabled={loading} className="inline-flex items-center gap-1 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700"><ShieldCheck className="h-3.5 w-3.5" /> Approve</button>}
+              <button onClick={exportPng} className="inline-flex items-center gap-1 rounded-[12px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700"><Download className="h-3.5 w-3.5" /> PNG</button>
+              <button onClick={exportPdf} className="inline-flex items-center gap-1 rounded-[12px] border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700"><FileText className="h-3.5 w-3.5" /> PDF</button>
+            </div>
+          </div>
+        </div>
+
         {hasCanvas ? (
           <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onNodeClick={(_, node) => setSelectedNodeDetails(node.data.rawDetails)} onPaneClick={() => setSelectedNodeDetails(null)} fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.25} maxZoom={1.5} proOptions={{ hideAttribution: true }}>
             <Background color="#d7e3ec" gap={28} size={1} />
-            <Controls className="overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-lg [&_button]:border-slate-100 [&_button]:bg-white [&_svg]:fill-slate-500" />
+            <Controls className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-lg [&_button]:border-slate-100 [&_button]:bg-white [&_svg]:fill-slate-500" />
             <Panel position="top-center" className="!m-4">
-              <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-white/80 bg-white/90 px-3 py-2 text-xs font-black text-slate-600 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-                <button onClick={() => runCanvas(false)} disabled={!activeCanvas || loading} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:text-slate-300"><Play className="h-3.5 w-3.5" /> Run</button>
-                <button onClick={() => runCanvas(true)} disabled={!activeCanvas || loading} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-slate-700 hover:bg-slate-50 disabled:text-slate-300"><Clock3 className="h-3.5 w-3.5" /> Dry</button>
-                {waitingStep && <button onClick={() => approveWaitingStep(true)} disabled={loading} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-amber-700 hover:bg-amber-50"><ShieldCheck className="h-3.5 w-3.5" /> Approve</button>}
-                <span className="h-4 w-px bg-slate-200" />
-                <button onClick={exportPng} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-cyan-700 hover:bg-cyan-50"><Download className="h-3.5 w-3.5" /> PNG</button>
-                <button onClick={exportPdf} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-cyan-700 hover:bg-cyan-50"><FileText className="h-3.5 w-3.5" /> PDF</button>
-                <span className="h-4 w-px bg-slate-200" />
-                <span>{nodes.length} nodes</span>
-                <span>{edges.length} paths</span>
+              <div className="flex flex-wrap items-center gap-2 rounded-[16px] border border-white/80 bg-white/90 px-3 py-2 text-xs font-black text-slate-600 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">{nodes.length} nodes</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">{edges.length} paths</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">{runs.length} runs</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">{connectors.length} connectors</span>
               </div>
             </Panel>
           </ReactFlow>
         ) : (
-          <div className="relative z-10 flex h-full items-center justify-center px-6">
-            <div className="max-w-xl rounded-[8px] border border-white/80 bg-white/88 p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[8px] border border-cyan-100 bg-cyan-50 text-cyan-700"><Layers3 className="h-6 w-6" /></div>
-              <h2 className="mt-4 text-xl font-black text-slate-950">Workspace Ready</h2>
+          <div className="relative z-10 flex h-full items-center justify-center px-6 pt-20">
+            <div className="max-w-2xl rounded-[24px] border border-white/80 bg-white/90 p-10 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[18px] border border-cyan-100 bg-cyan-50 text-cyan-700"><Layers3 className="h-7 w-7" /></div>
+              <h2 className="mt-5 text-2xl font-black text-slate-950">Select a project and generate a workflow</h2>
               <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-500">{summary}</p>
+              <div className="mt-6 grid gap-3 text-left sm:grid-cols-3">
+                {[
+                  ['Prompt to DAG', 'Describe the goal and generate a structured workflow.'],
+                  ['Approval gate', 'Pause human decisions before sensitive actions.'],
+                  ['Run history', 'Observe steps, logs, and connector invocations.'],
+                ].map(([title, desc]) => (
+                  <div key={title} className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{title}</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-700">{desc}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        <aside className="absolute right-4 top-20 z-10 hidden w-96 rounded-[8px] border border-white/80 bg-white/90 p-3 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl xl:block">
-          <div className="grid grid-cols-5 gap-1 rounded-[8px] bg-slate-100 p-1">
+        <aside className="absolute right-4 top-28 z-10 hidden w-96 rounded-[18px] border border-white/80 bg-white/92 p-3 shadow-[0_16px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl xl:block">
+          <div className="grid grid-cols-5 gap-1 rounded-[14px] bg-slate-100 p-1">
             {[
               ['inspect', 'Inspect'],
               ['runs', 'Runs'],
@@ -804,11 +910,11 @@ export default function CanvasPage() {
               ['versions', 'Versions'],
               ['logs', 'Logs'],
             ].map(([key, label]) => (
-              <button key={key} onClick={() => setActiveTab(key as RightTab)} className={`rounded-md py-2 text-xs font-black ${activeTab === key ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>{label}</button>
+              <button key={key} onClick={() => setActiveTab(key as RightTab)} className={`rounded-[10px] py-2 text-xs font-black ${activeTab === key ? 'bg-white text-cyan-700 shadow-sm' : 'text-slate-400'}`}>{label}</button>
             ))}
           </div>
           <div className="mt-3 max-h-[62vh] overflow-y-auto text-sm font-semibold leading-relaxed text-slate-600">
-            {error ? <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-3 text-amber-900">{error}</div> : null}
+            {error ? <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-3 text-amber-900">{error}</div> : null}
             {!error && activeTab === 'inspect' && (
               selectedNodeDetails ? (
                 <div>
