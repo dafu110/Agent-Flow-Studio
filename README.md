@@ -17,7 +17,7 @@ It is designed as a portfolio-ready enterprise AI workflow platform: authenticat
 - **Executable workflow engine**: `POST /api/canvases/{canvas_id}/runs` executes nodes in DAG order and persists run/step records.
 - **Human approval gate**: Governance, Decision, approval, or human nodes pause execution; approval resumes downstream pending steps.
 - **Connector catalog and audit**: Slack, Teams, Gmail, Outlook, Google Drive, Jira, GitHub, Notion, Salesforce, PostgreSQL, and Webhook/HTTP Request are modeled with invocation audit records.
-- **Enterprise control plane**: health, readiness, scorecard, governance events, request logs, rate limits, RBAC membership, queue state, and observability summary.
+- **Enterprise control plane**: health, readiness checks, governance events, request logs, rate limits, RBAC membership, queue state, and observability summary.
 - **Open-source friendly setup**: Docker Compose starts frontend and backend together without machine-specific paths.
 
 ## Tech Stack
@@ -102,7 +102,6 @@ TOKEN_TTL_SECONDS=604800
 RATE_LIMIT_PER_MINUTE=90
 GEMINI_MAX_RETRIES=3
 ENTERPRISE_MODE=false
-TARGET_ENTERPRISE_SCORE=96
 CONNECTOR_EXECUTION_ENABLED=false
 ```
 
@@ -166,7 +165,6 @@ docker compose up --build -d
 | --- | --- | --- |
 | `GET` | `/api/health` | Runtime health check |
 | `GET` | `/api/readiness` | Enterprise readiness checks |
-| `GET` | `/api/scorecard` | Control-plane evidence summary |
 | `POST` | `/api/auth/register` | Register account |
 | `POST` | `/api/auth/login` | Login and receive token |
 | `GET` | `/api/projects` | List accessible projects |

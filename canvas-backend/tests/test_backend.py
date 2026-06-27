@@ -41,15 +41,12 @@ class IsolatedBackendTest(unittest.TestCase):
 
         health = self.client.get("/api/health")
         self.assertEqual(health.status_code, 200)
-        self.assertEqual(health.json()["target_enterprise_score"], 96)
+        self.assertNotIn("target_enterprise_score", health.json())
 
         readiness = self.client.get("/api/readiness")
         self.assertEqual(readiness.status_code, 200)
         self.assertTrue(readiness.json()["ready"])
-
-        scorecard = self.client.get("/api/scorecard")
-        self.assertEqual(scorecard.status_code, 200)
-        self.assertEqual(scorecard.json()["score"], 96)
+        self.assertNotIn("scorecard", readiness.json())
 
         me = self.client.get("/api/me", headers=headers)
         self.assertEqual(me.status_code, 200)

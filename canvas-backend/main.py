@@ -56,7 +56,6 @@ token_ttl_seconds = int(os.getenv("TOKEN_TTL_SECONDS", str(7 * 24 * 60 * 60)))
 rate_limit_per_minute = int(os.getenv("RATE_LIMIT_PER_MINUTE", "90"))
 gemini_max_retries = int(os.getenv("GEMINI_MAX_RETRIES", "3"))
 enterprise_mode = os.getenv("ENTERPRISE_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
-target_enterprise_score = int(os.getenv("TARGET_ENTERPRISE_SCORE", "96"))
 connector_execution_enabled = os.getenv("CONNECTOR_EXECUTION_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -268,49 +267,6 @@ def now_ts() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def enterprise_scorecard() -> dict[str, Any]:
-    dimensions = [
-        {
-            "id": "workflow",
-            "label": "Workflow canvas completeness",
-            "score": 20,
-            "evidence": "Prompt-to-DAG generation, projects, canvases, templates, versions, executable runs, step status, and saved topology contracts are implemented.",
-        },
-        {
-            "id": "security",
-            "label": "Security and access control",
-            "score": 19,
-            "evidence": "PBKDF2 passwords, signed tokens, RBAC project membership, tenant isolation tests, rate limits, request logs, and enterprise secret checks are available.",
-        },
-        {
-            "id": "governance",
-            "label": "Governance and auditability",
-            "score": 19,
-            "evidence": "Governance events, request logs, version history, model metadata, approval gates, connector invocation audit, and ownership boundaries are persisted.",
-        },
-        {
-            "id": "platform",
-            "label": "Platform operations",
-            "score": 19,
-            "evidence": "Health/readiness endpoints, queue semantics, retry policy, GitHub Actions CI, SQLite reference storage, and runtime config checks are present.",
-        },
-        {
-            "id": "product",
-            "label": "Product experience",
-            "score": 19,
-            "evidence": "Next.js canvas UI, React Flow interaction, templates, exports, connector market, Ops dashboard, run history, and approval controls support a complete demo path.",
-        },
-    ]
-    score = sum(item["score"] for item in dimensions)
-    return {
-        "score": score,
-        "target": target_enterprise_score,
-        "grade": "A+" if score >= target_enterprise_score else "A",
-        "dimensions": dimensions,
-        "summary": "Enterprise AI workflow orchestration platform with SaaS-style control-plane hooks and clear production hardening path.",
-    }
-
-
 def enterprise_warnings() -> list[str]:
     warnings: list[str] = []
     if enterprise_mode and app_secret == "agentflow-dev-secret-change-me":
@@ -340,7 +296,7 @@ def readiness_payload() -> dict[str, Any]:
     ]
     warnings = enterprise_warnings()
     ready = all(item["ok"] for item in checks) and not warnings
-    return {"ready": ready, "warnings": warnings, "checks": checks, "scorecard": enterprise_scorecard()}
+    return {"ready": ready, "warnings": warnings, "checks": checks}
 
 
 def normalize_email(email: str) -> str:
@@ -1356,7 +1312,6 @@ async def health_check():
         "database": str(DB_PATH),
         "enterprise_mode": enterprise_mode,
         "rate_limit_per_minute": rate_limit_per_minute,
-        "target_enterprise_score": target_enterprise_score,
     }
 
 
@@ -1364,11 +1319,6 @@ async def health_check():
 async def readiness_check():
     payload = readiness_payload()
     return JSONResponse(status_code=200 if payload["ready"] else 503, content=payload)
-
-
-@app.get("/api/scorecard")
-async def scorecard():
-    return enterprise_scorecard()
 
 
 @app.post("/api/auth/register", response_model=AuthResponse)

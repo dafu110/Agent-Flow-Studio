@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentFlow Studio Design Previews</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #eef2f7;
+        color: #111827;
+      }
+
+      .artboard {
+        display: none;
+        width: 1440px;
+        height: 900px;
+        overflow: hidden;
+      }
+
+      body[data-preview="enterprise-console"] #enterprise-console,
+      body[data-preview="dark-ops"] #dark-ops,
+      body[data-preview="glass-canvas"] #glass-canvas,
+      body[data-preview="pipeline-builder"] #pipeline-builder,
+      body[data-preview="mission-control"] #mission-control {
+        display: grid;
+      }
+
+      .app {
+        grid-template-columns: 280px 1fr 360px;
+        height: 900px;
+      }
+
+      .sidebar {
+        padding: 20px;
+        border-right: 1px solid var(--line);
+        background: var(--side);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .mark {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 20px;
+      }
+
+      .nav-item,
+      .list-item,
+      .metric,
+      .panel,
+      .node,
+      .tool {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .nav-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        padding: 11px 12px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .nav-item.active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .section-title {
+        margin: 22px 0 10px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .list-item {
+        margin-bottom: 10px;
+        padding: 12px;
+        background: var(--card);
+      }
+
+      .list-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 13px;
+      }
+
+      .list-item span,
+      .muted {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .main {
+        position: relative;
+        padding: 22px;
+        background: var(--canvas);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.2;
+      }
+
+      .title p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .button {
+        height: 36px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--button);
+        color: var(--button-text);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .metric {
+        padding: 14px;
+        background: var(--card);
+      }
+
+      .metric .value {
+        margin-top: 8px;
+        color: var(--text);
+        font-size: 24px;
+        font-weight: 900;
+      }
+
+      .canvas {
+        position: relative;
+        height: 650px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+          radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0) 0 0 / 24px
+            24px,
+          var(--canvas-inner);
+        overflow: hidden;
+      }
+
+      .node {
+        position: absolute;
+        width: 220px;
+        min-height: 116px;
+        padding: 14px;
+        background: var(--node);
+        box-shadow: var(--shadow);
+      }
+
+      .node .tag {
+        display: inline-flex;
+        margin-bottom: 10px;
+        padding: 4px 7px;
+        border-radius: 6px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .node strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .edge {
+        position: absolute;
+        height: 2px;
+        background: var(--accent);
+        opacity: 0.72;
+      }
+
+      .edge::after {
+        position: absolute;
+        right: -6px;
+        top: -4px;
+        width: 0;
+        height: 0;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        border-left: 7px solid var(--accent);
+        content: "";
+      }
+
+      .right {
+        padding: 20px;
+        border-left: 1px solid var(--line);
+        background: var(--side);
+      }
+
+      .panel {
+        margin-bottom: 12px;
+        padding: 14px;
+        background: var(--card);
+      }
+
+      .panel h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+
+      .step {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--subtle);
+      }
+
+      .status {
+        display: inline-flex;
+        margin-left: 8px;
+        padding: 3px 7px;
+        border-radius: 6px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      #enterprise-console {
+        --accent: #0f766e;
+        --accent-soft: #ccfbf1;
+        --button: #ffffff;
+        --button-text: #111827;
+        --canvas: #f3f6fa;
+        --canvas-inner: #fbfdff;
+        --card: #ffffff;
+        --dot: #d5dce7;
+        --line: #dbe3ee;
+        --muted: #64748b;
+        --node: #ffffff;
+        --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        --side: #f8fafc;
+        --subtle: #f1f5f9;
+        --text: #0f172a;
+        --warn: #b45309;
+        --warn-soft: #fef3c7;
+      }
+
+      #dark-ops {
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.13);
+        --button: #0f172a;
+        --button-text: #e5eefb;
+        --canvas: #060a12;
+        --canvas-inner: #08111f;
+        --card: #0c1625;
+        --dot: rgba(148, 163, 184, 0.28);
+        --line: #1e2b3f;
+        --muted: #91a4bd;
+        --node: #0f1b2d;
+        --shadow: 0 16px 34px rgba(0, 0, 0, 0.34);
+        --side: #07101d;
+        --subtle: #111d30;
+        --text: #f8fafc;
+        --warn: #f59e0b;
+        --warn-soft: rgba(245, 158, 11, 0.14);
+        color: var(--text);
+      }
+
+      #glass-canvas {
+        --accent: #0891b2;
+        --accent-soft: rgba(207, 250, 254, 0.82);
+        --button: rgba(255, 255, 255, 0.75);
+        --button-text: #0f172a;
+        --canvas: linear-gradient(135deg, #f7fbff 0%, #edf8fb 52%, #f8fafc 100%);
+        --canvas-inner: rgba(255, 255, 255, 0.56);
+        --card: rgba(255, 255, 255, 0.74);
+        --dot: #b7cbd8;
+        --line: rgba(203, 213, 225, 0.72);
+        --muted: #64748b;
+        --node: rgba(255, 255, 255, 0.82);
+        --shadow: 0 18px 40px rgba(8, 145, 178, 0.12);
+        --side: rgba(248, 250, 252, 0.82);
+        --subtle: rgba(241, 245, 249, 0.72);
+        --text: #0f172a;
+        --warn: #b45309;
+        --warn-soft: rgba(254, 243, 199, 0.88);
+      }
+
+      #pipeline-builder {
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --button: #ffffff;
+        --button-text: #1e293b;
+        --canvas: #f8fafc;
+        --canvas-inner: #ffffff;
+        --card: #ffffff;
+        --dot: #cbd5e1;
+        --line: #d8e0eb;
+        --muted: #64748b;
+        --node: #ffffff;
+        --shadow: 0 10px 24px rgba(37, 99, 235, 0.1);
+        --side: #ffffff;
+        --subtle: #f1f5f9;
+        --text: #111827;
+        --warn: #c2410c;
+        --warn-soft: #ffedd5;
+      }
+
+      #mission-control {
+        --accent: #14b8a6;
+        --accent-soft: rgba(20, 184, 166, 0.13);
+        --button: #121826;
+        --button-text: #e2e8f0;
+        --canvas: #0c111b;
+        --canvas-inner: #111827;
+        --card: #151c2b;
+        --dot: rgba(20, 184, 166, 0.18);
+        --line: #263247;
+        --muted: #94a3b8;
+        --node: #172033;
+        --shadow: 0 18px 42px rgba(0, 0, 0, 0.26);
+        --side: #101722;
+        --subtle: #1c2638;
+        --text: #f8fafc;
+        --warn: #fbbf24;
+        --warn-soft: rgba(251, 191, 36, 0.14);
+        color: var(--text);
+      }
+
+      .pipeline-tools {
+        display: grid;
+        gap: 10px;
+      }
+
+      .tool {
+        padding: 12px;
+        background: var(--subtle);
+        font-size: 13px;
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="artboard app" id="enterprise-console">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">✦</span>AgentFlow Studio</div>
+        <div class="nav-item active">Workflows <span>12</span></div>
+        <div class="nav-item">Approvals <span>3</span></div>
+        <div class="nav-item">Connectors <span>18</span></div>
+        <div class="section-title">Projects</div>
+        <div class="list-item"><strong>Revenue Ops Agent</strong><span>Manual run waiting</span></div>
+        <div class="list-item"><strong>Launch Planner</strong><span>Updated 12 min ago</span></div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="title">
+            <h1>Revenue Ops Agent <span class="status">Waiting approval</span></h1>
+            <p>Qualify expansion accounts, approve actions, then sync CRM and Slack.</p>
+          </div>
+          <div class="actions"><button class="button">Dry Run</button><button class="button primary">Run</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span class="muted">Active runs</span><div class="value">8</div></div>
+          <div class="metric"><span class="muted">Approvals</span><div class="value">3</div></div>
+          <div class="metric"><span class="muted">Connectors</span><div class="value">18</div></div>
+          <div class="metric"><span class="muted">Avg latency</span><div class="value">512ms</div></div>
+        </div>
+        <div class="canvas">
+          <div class="node" style="left: 70px; top: 110px"><span class="tag">Input</span><strong>Capture signal</strong><span class="muted">CRM, inbox, account health</span></div>
+          <div class="edge" style="left: 290px; top: 168px; width: 115px"></div>
+          <div class="node" style="left: 410px; top: 110px"><span class="tag">Research</span><strong>Enrich context</strong><span class="muted">Docs, notes, stakeholder map</span></div>
+          <div class="edge" style="left: 630px; top: 168px; width: 115px"></div>
+          <div class="node" style="left: 750px; top: 110px"><span class="tag">Plan</span><strong>Score fit</strong><span class="muted">Expansion recommendation</span></div>
+          <div class="node" style="left: 240px; top: 360px"><span class="tag">Govern</span><strong>Approve action</strong><span class="muted">Human review gate</span></div>
+          <div class="node" style="left: 610px; top: 360px"><span class="tag">Automate</span><strong>Sync CRM</strong><span class="muted">Salesforce and Slack</span></div>
+        </div>
+      </main>
+      <aside class="right">
+        <div class="panel"><h3>Run history</h3><div class="step">Capture signal <span class="muted">completed</span></div><div class="step">Approve action <span class="status">waiting</span></div></div>
+        <div class="panel"><h3>Inspector</h3><p class="muted">Selected nodes expose tools, policy, permissions, and audit trail.</p></div>
+      </aside>
+    </section>
+
+    <section class="artboard app" id="dark-ops">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">⌘</span>AgentFlow Command</div>
+        <div class="nav-item active">Live Runs <span>08</span></div>
+        <div class="nav-item">Risk Queue <span>03</span></div>
+        <div class="nav-item">Logs <span>241</span></div>
+        <div class="section-title">Operations</div>
+        <div class="list-item"><strong>Revenue Ops Agent</strong><span>approval hold</span></div>
+        <div class="list-item"><strong>Incident Triage</strong><span>streaming</span></div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="title"><h1>Operations Command <span class="status">Hold</span></h1><p>Real-time workflow execution with audit-first controls.</p></div>
+          <div class="actions"><button class="button">Trace</button><button class="button primary">Resume</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span class="muted">Queue</span><div class="value">14</div></div>
+          <div class="metric"><span class="muted">Blocked</span><div class="value">3</div></div>
+          <div class="metric"><span class="muted">Tokens</span><div class="value">18k</div></div>
+          <div class="metric"><span class="muted">Cost</span><div class="value">$0.08</div></div>
+        </div>
+        <div class="canvas">
+          <div class="node" style="left: 80px; top: 120px"><span class="tag">Signal</span><strong>Telemetry intake</strong><span class="muted">Events, webhooks, triggers</span></div>
+          <div class="edge" style="left: 300px; top: 178px; width: 120px"></div>
+          <div class="node" style="left: 430px; top: 120px"><span class="tag">Classify</span><strong>Policy match</strong><span class="muted">Risk, owner, route</span></div>
+          <div class="edge" style="left: 650px; top: 178px; width: 120px"></div>
+          <div class="node" style="left: 780px; top: 120px"><span class="tag">Action</span><strong>Execute task</strong><span class="muted">Connector sandbox</span></div>
+          <div class="node" style="left: 260px; top: 370px"><span class="tag">Gate</span><strong>Human approval</strong><span class="muted">Escalation required</span></div>
+          <div class="node" style="left: 620px; top: 370px"><span class="tag">Audit</span><strong>Write evidence</strong><span class="muted">Immutable run log</span></div>
+        </div>
+      </main>
+      <aside class="right">
+        <div class="panel"><h3>Run #482</h3><div class="step">Policy match complete</div><div class="step">Approval requested</div><div class="step">Downstream pending</div></div>
+        <div class="panel"><h3>Console</h3><p class="muted">Dark, dense, technical, and best for ops-heavy demos.</p></div>
+      </aside>
+    </section>
+
+    <section class="artboard app" id="glass-canvas">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">✧</span>AgentFlow Studio</div>
+        <div class="nav-item active">Canvas <span>open</span></div>
+        <div class="nav-item">Templates <span>4</span></div>
+        <div class="nav-item">Connectors <span>18</span></div>
+        <div class="section-title">Templates</div>
+        <div class="list-item"><strong>Product Launch</strong><span>plan, run, review</span></div>
+        <div class="list-item"><strong>Growth Campaign</strong><span>segment and approve</span></div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="title"><h1>Glass Canvas Studio <span class="status">Preview</span></h1><p>Airy translucent panels over a refined workflow canvas.</p></div>
+          <div class="actions"><button class="button">Export</button><button class="button primary">Generate</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span class="muted">Nodes</span><div class="value">5</div></div>
+          <div class="metric"><span class="muted">Paths</span><div class="value">4</div></div>
+          <div class="metric"><span class="muted">Versions</span><div class="value">9</div></div>
+          <div class="metric"><span class="muted">Runs</span><div class="value">21</div></div>
+        </div>
+        <div class="canvas">
+          <div class="node" style="left: 80px; top: 110px"><span class="tag">Input</span><strong>Capture signal</strong><span class="muted">Soft card, light canvas</span></div>
+          <div class="edge" style="left: 300px; top: 168px; width: 130px"></div>
+          <div class="node" style="left: 440px; top: 110px"><span class="tag">Research</span><strong>Enrich account</strong><span class="muted">Context and sources</span></div>
+          <div class="edge" style="left: 660px; top: 168px; width: 130px"></div>
+          <div class="node" style="left: 800px; top: 110px"><span class="tag">Plan</span><strong>Recommend</strong><span class="muted">Action proposal</span></div>
+          <div class="node" style="left: 290px; top: 360px"><span class="tag">Approve</span><strong>Human gate</strong><span class="muted">Friendly product feel</span></div>
+          <div class="node" style="left: 650px; top: 360px"><span class="tag">Sync</span><strong>Deliver output</strong><span class="muted">Artifacts and logs</span></div>
+        </div>
+      </main>
+      <aside class="right">
+        <div class="panel"><h3>Inspector</h3><p class="muted">Best if you want to keep the current look but make it feel more premium.</p></div>
+        <div class="panel"><h3>Approvals</h3><div class="step">Outbound action waiting</div></div>
+      </aside>
+    </section>
+
+    <section class="artboard app" id="pipeline-builder" style="grid-template-columns: 260px 1fr 360px">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">+</span>Pipeline Builder</div>
+        <div class="section-title">Blocks</div>
+        <div class="pipeline-tools">
+          <div class="tool">Trigger</div>
+          <div class="tool">Research Agent</div>
+          <div class="tool">Approval Gate</div>
+          <div class="tool">CRM Action</div>
+          <div class="tool">Slack Notify</div>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="title"><h1>Revenue Expansion Pipeline <span class="status">Draft</span></h1><p>Build workflows with block library, canvas, and property editor.</p></div>
+          <div class="actions"><button class="button">Validate</button><button class="button primary">Publish</button></div>
+        </div>
+        <div class="canvas" style="height: 742px">
+          <div class="node" style="left: 110px; top: 100px"><span class="tag">Trigger</span><strong>New account signal</strong><span class="muted">Webhook / schedule</span></div>
+          <div class="edge" style="left: 330px; top: 158px; width: 150px"></div>
+          <div class="node" style="left: 490px; top: 100px"><span class="tag">Agent</span><strong>Research account</strong><span class="muted">Knowledge connectors</span></div>
+          <div class="node" style="left: 490px; top: 320px"><span class="tag">Gate</span><strong>Manager approval</strong><span class="muted">Required before send</span></div>
+          <div class="edge" style="left: 710px; top: 378px; width: 150px"></div>
+          <div class="node" style="left: 870px; top: 320px"><span class="tag">Action</span><strong>Update CRM</strong><span class="muted">Salesforce writeback</span></div>
+        </div>
+      </main>
+      <aside class="right">
+        <div class="panel"><h3>Properties</h3><div class="step">Block: Approval Gate</div><div class="step">Policy: Human required</div><div class="step">Owner: Revenue Lead</div></div>
+        <div class="panel"><h3>Best for</h3><p class="muted">A recognizable no-code workflow builder experience.</p></div>
+      </aside>
+    </section>
+
+    <section class="artboard app" id="mission-control">
+      <aside class="sidebar">
+        <div class="brand"><span class="mark">◆</span>Mission Control</div>
+        <div class="nav-item active">Missions <span>06</span></div>
+        <div class="nav-item">Timeline <span>live</span></div>
+        <div class="nav-item">Risk Board <span>3</span></div>
+        <div class="section-title">Active mission</div>
+        <div class="list-item"><strong>Revenue Expansion</strong><span>approval checkpoint</span></div>
+      </aside>
+      <main class="main">
+        <div class="topbar">
+          <div class="title"><h1>AI Mission Control <span class="status">Checkpoint</span></h1><p>Orchestrate goals with timeline, risk, approvals, and cost telemetry.</p></div>
+          <div class="actions"><button class="button">Briefing</button><button class="button primary">Authorize</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span class="muted">Objective</span><div class="value">72%</div></div>
+          <div class="metric"><span class="muted">Risk</span><div class="value">Med</div></div>
+          <div class="metric"><span class="muted">ETA</span><div class="value">14m</div></div>
+          <div class="metric"><span class="muted">Spend</span><div class="value">$0.12</div></div>
+        </div>
+        <div class="canvas">
+          <div class="node" style="left: 90px; top: 120px"><span class="tag">Brief</span><strong>Define mission</strong><span class="muted">Goal and constraints</span></div>
+          <div class="edge" style="left: 310px; top: 178px; width: 130px"></div>
+          <div class="node" style="left: 450px; top: 120px"><span class="tag">Scout</span><strong>Collect context</strong><span class="muted">Sources and signals</span></div>
+          <div class="edge" style="left: 670px; top: 178px; width: 130px"></div>
+          <div class="node" style="left: 810px; top: 120px"><span class="tag">Decide</span><strong>Choose action</strong><span class="muted">Model recommendation</span></div>
+          <div class="node" style="left: 300px; top: 380px"><span class="tag">Checkpoint</span><strong>Human authorization</strong><span class="muted">Before external action</span></div>
+          <div class="node" style="left: 680px; top: 380px"><span class="tag">Deploy</span><strong>Execute mission</strong><span class="muted">Tools and evidence</span></div>
+        </div>
+      </main>
+      <aside class="right">
+        <div class="panel"><h3>Timeline</h3><div class="step">00:01 Mission received</div><div class="step">02:14 Context complete</div><div class="step">04:29 Awaiting authorization</div></div>
+        <div class="panel"><h3>Risk</h3><p class="muted">More cinematic, good for portfolio screenshots.</p></div>
+      </aside>
+    </section>
+
+    <script>
+      const preview = new URLSearchParams(location.search).get("preview") || "enterprise-console";
+      document.body.dataset.preview = preview;
+    </script>
+  </body>
+</html>
