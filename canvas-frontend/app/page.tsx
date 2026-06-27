@@ -19,14 +19,12 @@ import '@xyflow/react/dist/style.css';
 import {
   Activity,
   AlertTriangle,
-  Boxes,
   CheckCircle2,
   Clock3,
   DatabaseZap,
   Download,
   FileText,
   GitBranch,
-  History,
   Layers3,
   Loader2,
   LockKeyhole,
@@ -235,18 +233,13 @@ const statusClass = (status: string) => {
   return 'border-cyan-200 bg-cyan-50 text-cyan-700';
 };
 
-const formatStatusLabel = (value: string) =>
+const escapeHtml = (value: string) =>
   value
-    .replaceAll('_', ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-
-const kpiTone = (index: number) =>
-  [
-    'from-cyan-50 to-white border-cyan-100 text-cyan-700',
-    'from-slate-50 to-white border-slate-200 text-slate-700',
-    'from-emerald-50 to-white border-emerald-100 text-emerald-700',
-    'from-violet-50 to-white border-violet-100 text-violet-700',
-  ][index % 4];
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 
 const createNodes = (items: CanvasNode[]): AgentNode[] =>
   items.map((node, index) => {
@@ -358,7 +351,7 @@ const wrapText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: num
 
 export default function CanvasPage() {
   const nodeTypes = useMemo(() => ({ agentNode: AgentNodeCard }), []);
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(tokenKey) ?? ''));
   const [user, setUser] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -442,11 +435,6 @@ export default function CanvasPage() {
       setCanvases(await apiFetch<CanvasRecord[]>(`/api/projects/${nextProjectId}/canvases`));
     }
   };
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem(tokenKey);
-    if (saved) setToken(saved);
-  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -663,8 +651,9 @@ export default function CanvasPage() {
     const printable = window.open('', '_blank');
     if (!printable) return;
     const nodeList = nodes.map((node) => node.data.rawDetails);
+    const title = escapeHtml(activeCanvas?.title || 'AgentFlow Canvas');
     printable.document.write(`
-      <html><head><title>${activeCanvas?.title || 'AgentFlow Canvas'}</title>
+      <html><head><title>${title}</title>
       <style>
         body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}
         h1{font-size:24px;margin-bottom:8px}.summary{color:#475569;line-height:1.7;margin-bottom:24px}
@@ -672,8 +661,8 @@ export default function CanvasPage() {
         .type{font-size:11px;color:#0891b2;font-weight:800;text-transform:uppercase}
         .label{font-size:16px;font-weight:800;margin:6px 0}.desc{color:#475569;line-height:1.6}
       </style></head><body>
-      <h1>${activeCanvas?.title || 'AgentFlow Canvas'}</h1><div class="summary">${summary}</div>
-      ${nodeList.map((node) => `<div class="node"><div class="type">${node.type || 'Planning'}</div><div class="label">${node.label}</div><div class="desc">${node.description || ''}</div></div>`).join('')}
+      <h1>${title}</h1><div class="summary">${escapeHtml(summary)}</div>
+      ${nodeList.map((node) => `<div class="node"><div class="type">${escapeHtml(node.type || 'Planning')}</div><div class="label">${escapeHtml(node.label)}</div><div class="desc">${escapeHtml(node.description || '')}</div></div>`).join('')}
       </body></html>
     `);
     printable.document.close();
@@ -752,14 +741,14 @@ export default function CanvasPage() {
                 <button onClick={() => setAuthMode('login')} className={`rounded-md py-2.5 ${authMode === 'login' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-400'}`}>Login</button>
                 <button onClick={() => setAuthMode('register')} className={`rounded-md py-2.5 ${authMode === 'register' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-400'}`}>Register</button>
               </div>
-              <div className="mt-4 space-y-3">
-                <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" />
-                <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" />
-                <button onClick={handleAuth} disabled={loading} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700 disabled:bg-slate-300">
+              <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); handleAuth(); }}>
+                <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" autoComplete="email" className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" />
+                <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} className="h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100" />
+                <button type="submit" disabled={loading} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 text-sm font-black text-white transition hover:bg-blue-700 disabled:bg-slate-300">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
                   {authMode === 'login' ? 'Enter builder' : 'Create account'}
                 </button>
-              </div>
+              </form>
               {error && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{error}</p>}
             </div>
           </div>
@@ -810,6 +799,22 @@ export default function CanvasPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
               Generate workflow
             </button>
+          </section>
+
+          <section className="mt-5 border-t border-slate-200 pt-4">
+            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Templates</div>
+            <div className="grid gap-2">
+              {templates.slice(0, 4).map((template) => (
+                <button key={template.id} type="button" onClick={() => applyTemplate(template)} className="group rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-black text-slate-900">{template.name}</span>
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-blue-500 opacity-70 group-hover:opacity-100" />
+                  </div>
+                  <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">{template.category} / {template.profile}</div>
+                </button>
+              ))}
+              {templates.length === 0 && <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-400">Templates load after sign in.</div>}
+            </div>
           </section>
 
           <section className="mt-5 border-t border-slate-200 pt-4">

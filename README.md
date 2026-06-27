@@ -203,6 +203,7 @@ Frontend:
 
 ```bash
 cd canvas-frontend
+npm run lint
 npm run build
 ```
 

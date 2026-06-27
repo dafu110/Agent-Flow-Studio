@@ -41,6 +41,9 @@ jobs:
       - name: Install frontend dependencies
         working-directory: canvas-frontend
         run: npm ci
+      - name: Lint frontend
+        working-directory: canvas-frontend
+        run: npm run lint
       - name: Build frontend
         working-directory: canvas-frontend
         run: npm run build
