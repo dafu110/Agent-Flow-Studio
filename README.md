@@ -1,24 +1,77 @@
 # AgentFlow Studio Enterprise
 
-AgentFlow Studio is a Gemini-powered agent workflow orchestration studio. The backend AgentFlow Orchestrator turns a user goal into structured nodes and dependency edges, while the Next.js frontend renders an editable React Flow workspace for running, approving, observing, and exporting workflows.
+AgentFlow Studio is a Gemini-powered agent workflow orchestration studio. It turns a plain-language goal into a governed workflow canvas, then lets teams run, approve, observe, version, and export that workflow from a visual Pipeline Builder.
 
-It is designed as a portfolio-ready enterprise AI workflow platform: authentication, project workspaces, templates, canvas persistence, version history, PNG/PDF export, request logs, rate limits, Gemini retry handling, governance events, connector catalog, workflow runs, step status, human approval gates, RBAC membership, queue state, connector invocation audit, observability summary, and CI.
-
-## Screenshots
+## Preview
 
 | Login | Workflow Canvas | Run History and Export |
 | --- | --- | --- |
 | ![Login screen](docs/screenshots/01-login.png) | ![Workflow canvas](docs/screenshots/02-workflow-canvas.png) | ![Run history and export controls](docs/screenshots/03-run-history-export.png) |
 
-## Highlights
+## Why It Exists
 
-- **Prompt-to-DAG generation**: FastAPI calls Gemini and validates structured topology output with Pydantic.
-- **Interactive canvas**: React Flow renders agent nodes, typed edges, templates, versions, exports, and node inspection.
-- **Executable workflow engine**: `POST /api/canvases/{canvas_id}/runs` executes nodes in DAG order and persists run/step records.
-- **Human approval gate**: Governance, Decision, approval, or human nodes pause execution; approval resumes downstream pending steps.
-- **Connector catalog and audit**: Slack, Teams, Gmail, Outlook, Google Drive, Jira, GitHub, Notion, Salesforce, PostgreSQL, and Webhook/HTTP Request are modeled with invocation audit records.
-- **Enterprise control plane**: health, readiness checks, governance events, request logs, rate limits, RBAC membership, queue state, and observability summary.
-- **Open-source friendly setup**: Docker Compose starts frontend and backend together without machine-specific paths.
+Most agent demos stop at prompt generation. AgentFlow Studio shows the next layer: a practical control plane for turning generated agent steps into a repeatable, auditable workflow.
+
+The project combines:
+
+- **Prompt-to-workflow generation**: FastAPI calls Gemini and validates structured topology output with Pydantic.
+- **Closed-loop Pipeline Builder**: React Flow renders connected agent blocks, approval gates, run history, and audit feedback.
+- **Governed execution**: Workflow runs persist node-level step status, token/cost estimates, queue state, and approval pauses.
+- **Enterprise operating layer**: Authentication, workspaces, RBAC membership, templates, versions, request logs, readiness checks, connector catalog, governance events, and observability summary.
+- **Portable setup**: Docker Compose runs frontend and backend together without machine-specific paths.
+
+## Quick Start
+
+### 1. Create Backend Configuration
+
+```bash
+cp canvas-backend/.env.example canvas-backend/.env
+```
+
+Set `GEMINI_API_KEY` in `canvas-backend/.env` if you want live prompt-to-workflow generation. The rest of the app, including auth, saved canvases, runs, approvals, logs, and exports, works without a Gemini key.
+
+### 2. Start The App
+
+```bash
+docker compose up --build
+```
+
+Open the frontend:
+
+```text
+http://localhost:3000
+```
+
+Check backend health:
+
+```text
+http://localhost:8000/api/health
+```
+
+## Product Flow
+
+1. Register or log in.
+2. Choose a workspace and optionally start from a template.
+3. Describe a workflow goal, such as a product launch, revenue operation, learning plan, or research project.
+4. Generate or open a workflow canvas.
+5. Review connected blocks, dependencies, tools, permissions, and audit policy.
+6. Validate or publish a run.
+7. Approve human-gated steps.
+8. Inspect run history, connector audit, logs, versions, and exports.
+
+## Feature Map
+
+| Area | What Is Included |
+| --- | --- |
+| Identity | Register, login, bearer token auth, token TTL |
+| Workspaces | Projects, project members, owner/editor/viewer/admin role checks |
+| Canvas | Prompt-to-DAG generation, saved canvases, versions, React Flow rendering |
+| Templates | Built-in prompt templates for product, operations, research, and learning workflows |
+| Execution | Workflow runs, dry runs, step records, queue status, approval continuation |
+| Governance | Human approval gates, governance events, request logs, readiness checks |
+| Connectors | Slack, Teams, Gmail, Outlook, Google Drive, Jira, GitHub, Notion, Salesforce, PostgreSQL, Webhook/HTTP |
+| Observability | Run counts, step counts, token/cost estimates, connector invocation audit, recent errors |
+| Export | PNG canvas export and printable PDF summary |
 
 ## Tech Stack
 
@@ -27,37 +80,11 @@ It is designed as a portfolio-ready enterprise AI workflow platform: authenticat
 | Frontend | Next.js 16, React 19, Tailwind CSS, React Flow, Lucide React |
 | Backend | FastAPI, Pydantic, SQLite, Google GenAI SDK, Gemini |
 | Storage | SQLite reference database at `canvas-backend/data/agentflow.db` |
-| CI | GitHub Actions for backend tests and frontend build |
-
-## Quick Start with Docker Compose
-
-1. Create a backend env file:
-
-```bash
-cp canvas-backend/.env.example canvas-backend/.env
-```
-
-2. Edit `canvas-backend/.env` and set `GEMINI_API_KEY` if you want live DAG generation. The rest of the app works without a Gemini key.
-
-3. Start both services:
-
-```bash
-docker compose up --build
-```
-
-4. Open:
-
-```text
-http://localhost:3000
-```
-
-Backend health check:
-
-```text
-http://localhost:8000/api/health
-```
+| CI | GitHub Actions for backend compile/tests, frontend lint, and frontend build |
 
 ## Local Development
+
+Run the backend and frontend in separate terminals.
 
 ### Backend
 
@@ -90,7 +117,7 @@ Open:
 http://localhost:3000
 ```
 
-## Environment Variables
+## Configuration
 
 Backend variables live in `canvas-backend/.env`:
 
@@ -111,7 +138,53 @@ Frontend variable:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-## Deployment Guide
+## API Overview
+
+Business APIs require:
+
+```text
+Authorization: Bearer <token>
+```
+
+### System And Auth
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Runtime health check |
+| `GET` | `/api/readiness` | Readiness checks |
+| `POST` | `/api/auth/register` | Register account |
+| `POST` | `/api/auth/login` | Login and receive token |
+| `GET` | `/api/me` | Current user |
+
+### Projects And Canvas
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/projects` | List accessible projects |
+| `POST` | `/api/projects` | Create project |
+| `GET` | `/api/projects/{project_id}/members` | List project RBAC members |
+| `GET` | `/api/projects/{project_id}/canvases` | List project canvases |
+| `POST` | `/api/canvases` | Save a workflow canvas |
+| `GET` | `/api/canvases/{canvas_id}` | Load a workflow canvas |
+| `GET` | `/api/canvases/{canvas_id}/versions` | Version history |
+| `POST` | `/api/generate-canvas` | Generate and save workflow canvas |
+| `GET` | `/api/templates` | Built-in templates |
+
+### Runs, Governance, And Ops
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/connectors` | Connector catalog |
+| `POST` | `/api/canvases/{canvas_id}/runs` | Start workflow run or dry run |
+| `GET` | `/api/canvases/{canvas_id}/runs` | Canvas run history |
+| `GET` | `/api/runs/{run_id}` | Run with node-level steps |
+| `GET` | `/api/runs/{run_id}/connector-invocations` | Connector invocation audit |
+| `POST` | `/api/runs/{run_id}/steps/{step_id}/approve` | Approve or reject human gate |
+| `GET` | `/api/observability/summary` | Ops dashboard summary |
+| `GET` | `/api/logs` | Request logs |
+| `GET` | `/api/governance/events` | Governance events |
+
+## Deployment
 
 ### Option A: Vercel + Render
 
@@ -147,7 +220,7 @@ npm run start -- --hostname 0.0.0.0 --port $PORT
 
 5. Set `NEXT_PUBLIC_API_BASE_URL` to the backend public URL.
 
-### Option C: Single VM with Docker Compose
+### Option C: Single VM With Docker Compose
 
 1. Copy the repository to the server.
 2. Create `canvas-backend/.env`.
@@ -158,36 +231,6 @@ docker compose up --build -d
 ```
 
 4. Put a reverse proxy such as Nginx or Caddy in front of ports `3000` and `8000`.
-
-## Main API
-
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/health` | Runtime health check |
-| `GET` | `/api/readiness` | Enterprise readiness checks |
-| `POST` | `/api/auth/register` | Register account |
-| `POST` | `/api/auth/login` | Login and receive token |
-| `GET` | `/api/projects` | List accessible projects |
-| `POST` | `/api/projects` | Create project |
-| `GET` | `/api/projects/{project_id}/members` | List project RBAC members |
-| `GET` | `/api/projects/{project_id}/canvases` | List project canvases |
-| `POST` | `/api/generate-canvas` | Generate and save workflow canvas |
-| `GET` | `/api/canvases/{canvas_id}/versions` | Version history |
-| `GET` | `/api/connectors` | Enterprise connector catalog |
-| `POST` | `/api/canvases/{canvas_id}/runs` | Start workflow run or dry run |
-| `GET` | `/api/canvases/{canvas_id}/runs` | Canvas run history |
-| `GET` | `/api/runs/{run_id}` | Run with node-level steps |
-| `GET` | `/api/runs/{run_id}/connector-invocations` | Connector invocation audit |
-| `POST` | `/api/runs/{run_id}/steps/{step_id}/approve` | Approve or reject human gate |
-| `GET` | `/api/observability/summary` | Ops dashboard summary |
-| `GET` | `/api/logs` | Request logs |
-| `GET` | `/api/governance/events` | Governance events |
-
-Business APIs require:
-
-```text
-Authorization: Bearer <token>
-```
 
 ## Verification
 
